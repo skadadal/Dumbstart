@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DumbOS v8 (DumbGolf)</title>
+    <title>DumbOS v9 (Clean Dashboard)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📟</text></svg>">
     <style>
         :root {
@@ -189,6 +189,11 @@
             left: 0%;
         }
 
+        /* GAMES MENU */
+        #view-games-menu h2 {
+            margin: 5px 0 10px 0; text-align: center; border-bottom: 1px solid #333;
+        }
+
     </style>
 </head>
 <body class="theme-default">
@@ -209,6 +214,14 @@
         </div>
         <div class="grid" id="app-grid">
             <!-- Apps injected by JS -->
+        </div>
+    </div>
+
+    <!-- VIEW 1.5: GAMES MENU -->
+    <div id="view-games-menu" class="view">
+        <h2>👾 Arcade</h2>
+        <div class="grid" id="games-grid">
+            <!-- Game Apps injected here -->
         </div>
     </div>
 
@@ -263,10 +276,8 @@
 
     <script>
         // --- DATA ---
-        const APPS = [
-            { id: "calcgame", icon: "🧮", name: "CalcGame", isInternal: true },
-            { id: "pixelsimon", icon: "🧠", name: "PixelSimon", isInternal: true },
-            { id: "dumbgolf", icon: "⛳️", name: "DumbGolf", isInternal: true }, // NEW
+        const MAIN_APPS = [
+            { id: "gamesmenu", icon: "👾", name: "Games", isInternal: true }, // FOLDER
             { url: "http://frogfind.com", icon: "🐸", name: "FrogFind" },
             { url: "https://lite.duckduckgo.com/lite", icon: "🦆", name: "DDG Lite" },
             { url: "https://wiby.me", icon: "🕸️", name: "Wiby" },
@@ -284,18 +295,26 @@
             { url: "https://github.com", icon: "🐙", name: "GitHub" }
         ];
 
+        const GAME_APPS = [
+            { id: "calcgame", icon: "🧮", name: "CalcGame", isInternal: true },
+            { id: "pixelsimon", icon: "🧠", name: "PixelSimon", isInternal: true },
+            { id: "dumbgolf", icon: "⛳️", name: "DumbGolf", isInternal: true }
+        ];
+
         const THEMES = ['default', 'red', 'green', 'amber', 'blue'];
         let currentTheme = localStorage.getItem('dumbos-theme') || 'default';
         document.body.className = currentTheme;
 
         // --- DOM ---
         const grid = document.getElementById('app-grid');
+        const gamesGrid = document.getElementById('games-grid');
         const omni = document.getElementById('omni-box');
         const optionsMenu = document.getElementById('options-menu');
         
         // Views
         const views = {
             home: document.getElementById('view-home'),
+            games: document.getElementById('view-games-menu'),
             calc: document.getElementById('view-calc'),
             pixel: document.getElementById('view-pixel'),
             golf: document.getElementById('view-golf')
@@ -305,20 +324,10 @@
         // --- INIT ---
         function init() {
             // Build Main Grid
-            APPS.forEach((app, i) => {
-                const el = document.createElement('a');
-                if(!app.isInternal) el.href = app.url;
-                else el.onclick = () => openApp(app.id); 
-                
-                el.className = 'app';
-                el.tabIndex = i + 1; 
-                el.innerHTML = `
-                    <span class="app-num">${i+1}</span>
-                    <span class="icon">${app.icon}</span>
-                    <span class="name">${app.name}</span>
-                `;
-                grid.appendChild(el);
-            });
+            renderGrid(grid, MAIN_APPS);
+            
+            // Build Games Grid
+            renderGrid(gamesGrid, GAME_APPS);
 
             // Build Pixel Grid
             const pGrid = document.getElementById('pixel-grid');
@@ -344,6 +353,23 @@
             setFocus(-1);
         }
 
+        function renderGrid(container, items) {
+            items.forEach((app, i) => {
+                const el = document.createElement('a');
+                if(!app.isInternal) el.href = app.url;
+                else el.onclick = () => openApp(app.id); 
+                
+                el.className = 'app';
+                el.tabIndex = i + 1; 
+                el.innerHTML = `
+                    <span class="app-num">${i+1}</span>
+                    <span class="icon">${app.icon}</span>
+                    <span class="name">${app.name}</span>
+                `;
+                container.appendChild(el);
+            });
+        }
+
         function updateTime() {
             const now = new Date();
             document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -351,26 +377,27 @@
 
         // --- NAVIGATION ---
         let focusIdx = -1; 
-        let appsNodeList = [];
         const cols = 3;
 
-        function getApps() {
-            if (appsNodeList.length === 0) appsNodeList = document.querySelectorAll('.app');
-            return appsNodeList;
+        function getActiveGridApps() {
+            if(currentView === 'home') return document.querySelectorAll('#app-grid .app');
+            if(currentView === 'games') return document.querySelectorAll('#games-grid .app');
+            return [];
         }
 
         function setFocus(idx) {
-            if(currentView !== 'home') return;
-            const apps = getApps();
+            const apps = getActiveGridApps();
+            if(apps.length === 0) return;
+
             apps.forEach(a => a.classList.remove('active'));
             omni.blur();
 
-            if (idx < 0) {
+            if (idx < 0 && currentView === 'home') {
                 focusIdx = -1;
                 omni.focus();
                 updateSoftKeys("Options", "SEARCH", "Back");
             } else {
-                focusIdx = idx;
+                focusIdx = Math.max(0, Math.min(idx, apps.length - 1)); // Clamp
                 if(apps[focusIdx]) {
                     apps[focusIdx].classList.add('active');
                     apps[focusIdx].focus();
@@ -397,8 +424,10 @@
 
             if(viewName === 'home') {
                 updateSoftKeys("Options", "OPEN", "Back");
-                setFocus(focusIdx);
-                stopPixelGame();
+                setFocus(focusIdx); // Restore focus
+            } else if (viewName === 'games') {
+                updateSoftKeys("Options", "OPEN", "Back");
+                setFocus(0); // Focus first game
             } else if (viewName === 'calc') {
                 updateSoftKeys("Reset", "SUBMIT", "Quit");
                 initCalcGame();
@@ -412,6 +441,7 @@
         }
 
         function openApp(id) {
+            if (id === 'gamesmenu') switchView('games');
             if (id === 'calcgame') switchView('calc');
             if (id === 'pixelsimon') switchView('pixel');
             if (id === 'dumbgolf') switchView('golf');
@@ -419,21 +449,23 @@
 
         // --- ACTIONS ---
         function handleLeftKey() {
-            if (currentView === 'home') toggleOptions();
+            if (currentView === 'home' || currentView === 'games') toggleOptions();
             else if (currentView === 'calc') initCalcGame();
             else if (currentView === 'pixel') startSimonRound();
             else if (currentView === 'golf') initGolfGame();
         }
 
         function handleCenterKey() {
-            if (currentView === 'home') {
-                if (focusIdx === -1) {
+            if (currentView === 'home' || currentView === 'games') {
+                if (currentView === 'home' && focusIdx === -1) {
                     if(omni.value.trim() !== "") window.location = `https://www.google.com/search?q=${encodeURIComponent(omni.value)}`;
                 } else {
-                    const apps = getApps();
-                    if(apps[focusIdx]) {
-                        if(APPS[focusIdx].isInternal) openApp(APPS[focusIdx].id);
-                        else window.location = apps[focusIdx].href;
+                    const apps = getActiveGridApps();
+                    const appData = (currentView === 'home' ? MAIN_APPS : GAME_APPS)[focusIdx];
+                    
+                    if(appData) {
+                        if(appData.isInternal) openApp(appData.id);
+                        else window.location = appData.url;
                     }
                 }
             } else if (currentView === 'calc') {
@@ -450,7 +482,8 @@
         }
 
         function handleRightKey() {
-            if (currentView !== 'home') switchView('home');
+            if (currentView === 'games') switchView('home');
+            else if (currentView !== 'home' && currentView !== 'games') switchView('games'); // Back to games menu
             else history.back();
         }
 
@@ -466,249 +499,68 @@
             localStorage.setItem('dumbos-theme', currentTheme);
         }
 
-        // --- CALC GAME ---
-        let gScore = 0; let gAnswer = 0;
-        function initCalcGame() {
-            gScore = 0; document.getElementById('g-score').innerText = gScore;
-            document.getElementById('g-msg').innerText = ""; nextCalcProblem();
-            document.getElementById('g-input').focus();
-        }
-        function nextCalcProblem() {
-            const op = Math.random() > 0.5 ? '+' : '-';
-            const a = Math.floor(Math.random() * 20) + 1; const b = Math.floor(Math.random() * 20) + 1;
-            let n1 = a, n2 = b; if (op === '-' && a < b) { n1 = b; n2 = a; }
-            gAnswer = (op === '+') ? n1 + n2 : n1 - n2;
-            document.getElementById('g-problem').innerText = `${n1} ${op} ${n2} = ?`;
-            document.getElementById('g-input').value = "";
-        }
-        function checkCalcAnswer() {
-            const val = parseInt(document.getElementById('g-input').value);
-            const msg = document.getElementById('g-msg');
-            if (val === gAnswer) {
-                gScore += 10; msg.innerText = "CORRECT!"; msg.style.color = "var(--highlight)";
-                document.getElementById('g-score').innerText = gScore;
-                setTimeout(() => { msg.innerText = ""; nextCalcProblem(); }, 500);
-            } else {
-                gScore = Math.max(0, gScore - 5); msg.innerText = "WRONG!"; msg.style.color = "red";
-                document.getElementById('g-score').innerText = gScore;
-            }
-            document.getElementById('g-input').focus();
-        }
+        // --- GAME LOGIC (Minified for space) ---
+        // CALC
+        let gScore=0,gAnswer=0;
+        function initCalcGame(){gScore=0;document.getElementById('g-score').innerText=0;document.getElementById('g-msg').innerText="";nextCalcProblem();document.getElementById('g-input').focus();}
+        function nextCalcProblem(){const op=Math.random()>.5?'+':'-';const a=Math.floor(Math.random()*20)+1;const b=Math.floor(Math.random()*20)+1;let n1=a,n2=b;if(op==='-'&&a<b){n1=b;n2=a;}gAnswer=(op==='+')?n1+n2:n1-n2;document.getElementById('g-problem').innerText=`${n1} ${op} ${n2} = ?`;document.getElementById('g-input').value="";}
+        function checkCalcAnswer(){const v=parseInt(document.getElementById('g-input').value);const m=document.getElementById('g-msg');if(v===gAnswer){gScore+=10;m.innerText="CORRECT!";m.style.color="var(--highlight)";document.getElementById('g-score').innerText=gScore;setTimeout(()=>{m.innerText="";nextCalcProblem()},500);}else{gScore=Math.max(0,gScore-5);m.innerText="WRONG!";m.style.color="red";document.getElementById('g-score').innerText=gScore;}document.getElementById('g-input').focus();}
 
-        // --- PIXEL SIMON ---
-        let simonSeq = [], playerSeq = [], simonLevel = 1, simonPlaying = false, inputEnabled = false;
-        function initPixelGame() {
-            simonSeq = []; simonLevel = 1;
-            document.getElementById('p-level').innerText = simonLevel;
-            document.getElementById('p-status').innerText = "Press Start Option";
-            clearPixels();
-        }
-        function stopPixelGame() { simonSeq = []; clearPixels(); }
-        function startSimonRound() {
-            if(simonPlaying) return; playerSeq = []; inputEnabled = false;
-            document.getElementById('p-status').innerText = "Watch...";
-            simonSeq.push(Math.floor(Math.random() * 9)); playSequence();
-        }
-        function playSequence() {
-            simonPlaying = true; let i = 0;
-            const interval = setInterval(() => {
-                if(i >= simonSeq.length) {
-                    clearInterval(interval); simonPlaying = false; inputEnabled = true;
-                    document.getElementById('p-status').innerText = "Your Turn!"; return;
-                }
-                flashPixel(simonSeq[i]); i++;
-            }, 600);
-        }
-        function flashPixel(idx) {
-            const btn = document.getElementById(`px-${idx}`);
-            btn.classList.add('lit'); setTimeout(() => btn.classList.remove('lit'), 300);
-        }
-        function handlePixelInput(idx) {
-            if(!inputEnabled) return;
-            const btn = document.getElementById(`px-${idx}`);
-            btn.classList.add('lit'); setTimeout(() => btn.classList.remove('lit'), 200);
-            if(idx === simonSeq[playerSeq.length]) {
-                playerSeq.push(idx);
-                if(playerSeq.length === simonSeq.length) {
-                    inputEnabled = false; simonLevel++;
-                    document.getElementById('p-level').innerText = simonLevel;
-                    document.getElementById('p-status').innerText = "Good! Next...";
-                    setTimeout(startSimonRound, 1000);
-                }
-            } else {
-                inputEnabled = false; document.getElementById('p-status').innerText = "GAME OVER!";
-                btn.classList.add('fail'); setTimeout(initPixelGame, 2000);
-            }
-        }
-        function clearPixels() {
-            for(let i=0; i<9; i++) {
-                const b = document.getElementById(`px-${i}`);
-                b.classList.remove('lit'); b.classList.remove('fail');
-            }
-        }
+        // PIXEL
+        let simonSeq=[],playerSeq=[],simonLevel=1,simonPlaying=false,inputEnabled=false;
+        function initPixelGame(){simonSeq=[];simonLevel=1;document.getElementById('p-level').innerText=1;document.getElementById('p-status').innerText="Press Start Option";clearPixels();}
+        function stopPixelGame(){simonSeq=[];clearPixels();}
+        function startSimonRound(){if(simonPlaying)return;playerSeq=[];inputEnabled=false;document.getElementById('p-status').innerText="Watch...";simonSeq.push(Math.floor(Math.random()*9));playSequence();}
+        function playSequence(){simonPlaying=true;let i=0;const int=setInterval(()=>{if(i>=simonSeq.length){clearInterval(int);simonPlaying=false;inputEnabled=true;document.getElementById('p-status').innerText="Your Turn!";return;}flashPixel(simonSeq[i]);i++;},600);}
+        function flashPixel(i){const b=document.getElementById(`px-${i}`);b.classList.add('lit');setTimeout(()=>b.classList.remove('lit'),300);}
+        function handlePixelInput(i){if(!inputEnabled)return;const b=document.getElementById(`px-${i}`);b.classList.add('lit');setTimeout(()=>b.classList.remove('lit'),200);if(i===simonSeq[playerSeq.length]){playerSeq.push(i);if(playerSeq.length===simonSeq.length){inputEnabled=false;simonLevel++;document.getElementById('p-level').innerText=simonLevel;document.getElementById('p-status').innerText="Good! Next...";setTimeout(startSimonRound,1000);}}else{inputEnabled=false;document.getElementById('p-status').innerText="GAME OVER!";b.classList.add('fail');setTimeout(initPixelGame,2000);}}
+        function clearPixels(){for(let i=0;i<9;i++){const b=document.getElementById(`px-${i}`);b.classList.remove('lit');b.classList.remove('fail');}}
 
-        // --- DUMB GOLF ---
-        let gfBall = 90; // Start bottom-leftish
-        let gfHole = 9;  // Start top-rightish
-        let gfStrokes = 0;
-        let gfAngle = 45; // Degrees
-        let gfPower = 0;
-        let gfCharging = false;
-        let gfPowerTimer = null;
-        let gfInAir = false;
-
-        function initGolfGame() {
-            gfBall = 90; gfHole = 9; gfStrokes = 0; gfAngle = 45; gfInAir = false;
-            updateGolfUI(); renderGolfGrid();
-        }
-        
-        function renderGolfGrid() {
-            // Clear grid classes
-            for(let i=0; i<100; i++) {
-                const t = document.getElementById(`gf-${i}`);
-                t.className = 'tile grass';
-                t.innerHTML = '';
-                
-                // Hazards (Simple Map)
-                if(i === 44 || i === 45 || i === 54 || i === 55) t.className = 'tile water';
-                if(i === 22 || i === 28 || i === 82) t.className = 'tile sand';
-            }
-            
-            // Draw Hole
-            const holeEl = document.getElementById(`gf-${gfHole}`);
-            holeEl.className = 'tile hole'; holeEl.innerHTML = '⛳️';
-            
-            // Draw Ball
-            const ballEl = document.getElementById(`gf-${Math.floor(gfBall)}`);
-            if(ballEl) {
-                ballEl.classList.add('ball');
-                ballEl.innerHTML = '⚪️';
-            }
-        }
-
-        function updateGolfUI() {
-            document.getElementById('gf-strokes').innerText = gfStrokes;
-            document.getElementById('gf-angle').innerText = gfAngle;
-        }
-
-        function changeGolfAngle(delta) {
-            gfAngle = (gfAngle + delta + 360) % 360;
-            updateGolfUI();
-        }
-
-        function startSwing() {
-            if(gfInAir) return;
-            if(gfCharging) return; // Already swinging?
-            
-            gfCharging = true;
-            gfPower = 0;
-            const fill = document.getElementById('gf-power-fill');
-            
-            gfPowerTimer = setInterval(() => {
-                gfPower += 5;
-                if(gfPower > 100) gfPower = 0; // Cycle
-                fill.style.width = gfPower + '%';
-            }, 30);
-        }
-
-        function releaseSwing() {
-            if(!gfCharging) return;
-            clearInterval(gfPowerTimer);
-            gfCharging = false;
-            gfInAir = true;
-            gfStrokes++;
-            updateGolfUI();
-            
-            // Physics Logic (Grid Based)
-            const rad = gfAngle * (Math.PI / 180);
-            const distance = (gfPower / 100) * 8; // Max 8 tiles
-            
-            const startX = gfBall % 10;
-            const startY = Math.floor(gfBall / 10);
-            
-            const vecX = Math.cos(rad) * distance;
-            const vecY = -Math.sin(rad) * distance; // Y is inverted (0 is top)
-            
-            let destX = Math.round(startX + vecX);
-            let destY = Math.round(startY + vecY);
-            
-            // Clamp to grid
-            destX = Math.max(0, Math.min(9, destX));
-            destY = Math.max(0, Math.min(9, destY));
-            
-            const destIdx = destY * 10 + destX;
-            
-            // Animate
-            document.getElementById('gf-msg').innerText = "Flying...";
-            
-            setTimeout(() => {
-                gfBall = destIdx;
-                renderGolfGrid();
-                gfInAir = false;
-                
-                // Check Hole
-                if(gfBall === gfHole) {
-                    document.getElementById('gf-msg').innerText = "HOLE IN ONE! 🎉";
-                } else {
-                    // Check Hazard
-                    const tile = document.getElementById(`gf-${gfBall}`);
-                    if(tile.classList.contains('water')) {
-                        document.getElementById('gf-msg').innerText = "SPLASH! 💦 (+1 Stroke)";
-                        gfStrokes++; updateGolfUI();
-                        // Reset to start? Or previous? For now just stay in water (playable)
-                    } else if (tile.classList.contains('sand')) {
-                        document.getElementById('gf-msg').innerText = "Bunker...";
-                    } else {
-                        document.getElementById('gf-msg').innerText = "";
-                    }
-                }
-            }, 1000);
-        }
+        // GOLF (Same logic)
+        let gfBall=90,gfHole=9,gfStrokes=0,gfAngle=45,gfPower=0,gfCharging=false,gfPowerTimer=null,gfInAir=false;
+        function initGolfGame(){gfBall=90;gfHole=9;gfStrokes=0;gfAngle=45;gfInAir=false;updateGolfUI();renderGolfGrid();}
+        function renderGolfGrid(){for(let i=0;i<100;i++){const t=document.getElementById(`gf-${i}`);t.className='tile grass';t.innerHTML='';if([44,45,54,55].includes(i))t.className='tile water';if([22,28,82].includes(i))t.className='tile sand';}const h=document.getElementById(`gf-${gfHole}`);h.className='tile hole';h.innerHTML='⛳️';const b=document.getElementById(`gf-${Math.floor(gfBall)}`);if(b){b.classList.add('ball');b.innerHTML='⚪️';}}
+        function updateGolfUI(){document.getElementById('gf-strokes').innerText=gfStrokes;document.getElementById('gf-angle').innerText=gfAngle;}
+        function changeGolfAngle(d){gfAngle=(gfAngle+d+360)%360;updateGolfUI();}
+        function startSwing(){if(gfInAir||gfCharging)return;gfCharging=true;gfPower=0;const f=document.getElementById('gf-power-fill');gfPowerTimer=setInterval(()=>{gfPower+=5;if(gfPower>100)gfPower=0;f.style.width=gfPower+'%';},30);}
+        function releaseSwing(){if(!gfCharging)return;clearInterval(gfPowerTimer);gfCharging=false;gfInAir=true;gfStrokes++;updateGolfUI();const r=gfAngle*(Math.PI/180),d=(gfPower/100)*8,sx=gfBall%10,sy=Math.floor(gfBall/10),vx=Math.cos(r)*d,vy=-Math.sin(r)*d;let dx=Math.round(sx+vx),dy=Math.round(sy+vy);dx=Math.max(0,Math.min(9,dx));dy=Math.max(0,Math.min(9,dy));const di=dy*10+dx;document.getElementById('gf-msg').innerText="Flying...";setTimeout(()=>{gfBall=di;renderGolfGrid();gfInAir=false;if(gfBall===gfHole)document.getElementById('gf-msg').innerText="HOLE IN ONE! 🎉";else{const t=document.getElementById(`gf-${gfBall}`);if(t.classList.contains('water')){document.getElementById('gf-msg').innerText="SPLASH! 💦";gfStrokes++;updateGolfUI();}else if(t.classList.contains('sand'))document.getElementById('gf-msg').innerText="Bunker...";else document.getElementById('gf-msg').innerText="";}},1000);}
 
         // --- INPUT HANDLER ---
         document.addEventListener('keydown', (e) => {
             const k = e.key;
-            
-            // Global Keys
             if (k === 'F1' || k === 'SoftLeft') { handleLeftKey(); e.preventDefault(); return; }
             if (k === 'F2' || k === 'SoftRight') { handleRightKey(); e.preventDefault(); return; }
             
-            // HOME
-            if (currentView === 'home') {
-                const apps = getApps();
+            // GRID NAVIGATION (Home or Games)
+            if (currentView === 'home' || currentView === 'games') {
+                const apps = getActiveGridApps();
+                const data = currentView === 'home' ? MAIN_APPS : GAME_APPS;
+
                 if (k >= '1' && k <= '9' && document.activeElement !== omni) {
                     const idx = parseInt(k) - 1;
-                    if (apps[idx]) {
-                        if(APPS[idx].isInternal) openApp(APPS[idx].id);
-                        else window.location = apps[idx].href;
+                    if (data[idx]) {
+                        if(data[idx].isInternal) openApp(data[idx].id);
+                        else window.location = data[idx].url;
                     } return;
                 }
-                if (k === 'ArrowDown') { if (focusIdx === -1) setFocus(0); else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols); e.preventDefault(); } 
-                else if (k === 'ArrowUp') { if (focusIdx < cols) setFocus(-1); else setFocus(focusIdx - cols); e.preventDefault(); }
-                else if (k === 'ArrowRight') { if (focusIdx !== -1 && (focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1); e.preventDefault(); }
-                else if (k === 'ArrowLeft') { if (focusIdx !== -1 && focusIdx % cols !== 0) setFocus(focusIdx - 1); e.preventDefault(); }
+                if (k === 'ArrowDown') { if (focusIdx === -1 && currentView==='home') setFocus(0); else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols); e.preventDefault(); } 
+                else if (k === 'ArrowUp') { if (focusIdx < cols && currentView==='home') setFocus(-1); else setFocus(focusIdx - cols); e.preventDefault(); }
+                else if (k === 'ArrowRight') { if ((focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1); e.preventDefault(); }
+                else if (k === 'ArrowLeft') { if (focusIdx % cols !== 0) setFocus(focusIdx - 1); e.preventDefault(); }
                 else if (k === 'Enter') handleCenterKey();
-            } 
-            // CALC
+            }
+            // GAMES
             else if (currentView === 'calc') { if (k === 'Enter') handleCenterKey(); }
-            // PIXEL
             else if (currentView === 'pixel') { if (k >= '1' && k <= '9') handlePixelInput(parseInt(k) - 1); }
-            // GOLF
             else if (currentView === 'golf') {
                 if (k === 'ArrowLeft') { changeGolfAngle(15); e.preventDefault(); }
                 else if (k === 'ArrowRight') { changeGolfAngle(-15); e.preventDefault(); }
-                else if (k === 'Enter' || k === ' ') {
-                    if(!e.repeat) startSwing(); // Start charge on press
-                    e.preventDefault();
-                }
+                else if (k === 'Enter' || k === ' ') { if(!e.repeat) startSwing(); e.preventDefault(); }
             }
         });
 
         document.addEventListener('keyup', (e) => {
-            const k = e.key;
-            if (currentView === 'golf' && (k === 'Enter' || k === ' ')) {
-                releaseSwing(); // Release charge
-            }
+            if (e.key === 'Enter' || e.key === ' ') handleCenterKeyRelease();
         });
 
         init();
