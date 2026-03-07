@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DumbOS v7 (PixelSimon)</title>
+    <title>DumbOS v8 (DumbGolf)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📟</text></svg>">
     <style>
         :root {
@@ -124,7 +124,10 @@
         .menu-item:hover, .menu-item.active { background: var(--select); color: #fff; }
         .hidden { display: none !important; }
 
-        /* --- CALC GAME STYLES --- */
+        /* --- GAME STYLES --- */
+        .game-score-box { font-size: 12px; margin-bottom: 5px; opacity: 0.8; }
+        
+        /* CALC */
         #view-calc { text-align: center; padding-top: 20px; }
         .game-display {
             font-size: 24px; font-weight: bold; margin-bottom: 20px;
@@ -135,40 +138,56 @@
             width: 80%; background: #222; border: 1px solid #555;
             color: #fff; font-size: 18px; padding: 5px; text-align: center;
         }
-        .game-score { font-size: 12px; margin-bottom: 10px; opacity: 0.7; }
-        .game-msg { color: var(--highlight); height: 20px; margin-top: 10px; }
 
-        /* --- PIXEL SIMON STYLES --- */
+        /* PIXEL SIMON */
         #view-pixel {
             display: flex; flex-direction: column; align-items: center;
             height: 100%;
         }
         .pixel-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            width: 80%; aspect-ratio: 1/1; /* Square */
-            margin-top: 20px;
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 5px; width: 80%; aspect-ratio: 1/1; margin-top: 20px;
         }
         .pixel-btn {
-            background: #222; border: 2px solid #444;
-            border-radius: 5px; cursor: pointer;
-            position: relative;
-            transition: background 0.1s;
+            background: #222; border: 2px solid #444; border-radius: 5px;
+            cursor: pointer; transition: background 0.1s;
         }
-        .pixel-btn:active { background: #444; }
-        .pixel-btn.lit {
-            background: var(--highlight);
-            border-color: #fff;
-            box-shadow: 0 0 10px var(--highlight);
+        .pixel-btn.lit { background: var(--highlight); border-color: #fff; box-shadow: 0 0 10px var(--highlight); }
+        .pixel-btn.fail { background: red !important; }
+
+        /* GOLF */
+        #view-golf {
+            display: flex; flex-direction: column; align-items: center;
+            height: 100%; font-family: monospace;
         }
-        .pixel-btn.fail {
-            background: red !important;
+        .golf-course {
+            display: grid; grid-template-columns: repeat(10, 1fr);
+            gap: 1px; background: #050; border: 2px solid #fff;
+            width: 90%; aspect-ratio: 1/1; margin-top: 10px;
         }
-        .pixel-score-box {
-            font-size: 18px; margin-top: 10px; font-weight: bold;
+        .tile {
+            background: #000; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #fff;
         }
-        .pixel-status { height: 20px; margin-top: 10px; color: #888; font-size: 10px; }
+        .tile.grass { background: #131; color: #262; }
+        .tile.sand { background: #cca; color: #aa8; }
+        .tile.water { background: #00f; color: #aaf; }
+        .tile.hole { background: #000; color: #fff; font-weight: bold; border: 1px solid #fff; border-radius: 50%; }
+        .tile.ball { background: #fff; border-radius: 50%; color: #000; font-weight: bold; z-index: 10; }
+        
+        .golf-ui { width: 90%; margin-top: 10px; font-size: 11px; }
+        .power-bar {
+            width: 100%; height: 10px; background: #333; margin-top: 5px;
+            position: relative; border: 1px solid #555;
+        }
+        .power-fill {
+            height: 100%; width: 0%; background: var(--highlight);
+            transition: width 0.1s linear;
+        }
+        .power-marker {
+            position: absolute; top: 0; bottom: 0; width: 2px; background: #fff;
+            left: 0%;
+        }
 
     </style>
 </head>
@@ -195,19 +214,34 @@
 
     <!-- VIEW 2: CALC GAME -->
     <div id="view-calc" class="view">
-        <div class="game-score">Score: <span id="g-score">0</span></div>
+        <div class="game-score-box">Score: <span id="g-score">0</span></div>
         <div class="game-display" id="g-problem">READY?</div>
         <input type="tel" id="g-input" class="game-input" placeholder="?">
         <div class="game-msg" id="g-msg"></div>
     </div>
 
     <!-- VIEW 3: PIXEL SIMON -->
-    <div id="view-pixel" class="view" style="display:none;"> <!-- Force hide initially -->
-        <div class="pixel-score-box">Level: <span id="p-level">1</span></div>
-        <div class="pixel-status" id="p-status">Watch sequence...</div>
-        
-        <div class="pixel-grid" id="pixel-grid">
-            <!-- 9 Buttons generated by JS -->
+    <div id="view-pixel" class="view">
+        <div class="game-score-box">Level: <span id="p-level">1</span></div>
+        <div id="p-status" style="height:20px; color:#888;">Watch sequence...</div>
+        <div class="pixel-grid" id="pixel-grid"></div>
+    </div>
+
+    <!-- VIEW 4: DUMB GOLF -->
+    <div id="view-golf" class="view">
+        <div class="game-score-box">
+            Hole: <span id="gf-hole">1</span> | Par: 3 | Strokes: <span id="gf-strokes">0</span>
+        </div>
+        <div class="golf-course" id="golf-grid">
+            <!-- 10x10 Grid -->
+        </div>
+        <div class="golf-ui">
+            <div>Angle: <span id="gf-angle">0</span>&deg; <span id="gf-msg"></span></div>
+            <div class="power-bar">
+                <div id="gf-power-fill" class="power-fill"></div>
+                <div id="gf-power-marker" class="power-marker"></div>
+            </div>
+            <div style="font-size:9px; margin-top:2px;">Hold CENTER to Swing!</div>
         </div>
     </div>
 
@@ -231,7 +265,8 @@
         // --- DATA ---
         const APPS = [
             { id: "calcgame", icon: "🧮", name: "CalcGame", isInternal: true },
-            { id: "pixelsimon", icon: "🧠", name: "PixelSimon", isInternal: true }, // Updated Name
+            { id: "pixelsimon", icon: "🧠", name: "PixelSimon", isInternal: true },
+            { id: "dumbgolf", icon: "⛳️", name: "DumbGolf", isInternal: true }, // NEW
             { url: "http://frogfind.com", icon: "🐸", name: "FrogFind" },
             { url: "https://lite.duckduckgo.com/lite", icon: "🦆", name: "DDG Lite" },
             { url: "https://wiby.me", icon: "🕸️", name: "Wiby" },
@@ -262,7 +297,8 @@
         const views = {
             home: document.getElementById('view-home'),
             calc: document.getElementById('view-calc'),
-            pixel: document.getElementById('view-pixel')
+            pixel: document.getElementById('view-pixel'),
+            golf: document.getElementById('view-golf')
         };
         let currentView = 'home';
 
@@ -284,7 +320,7 @@
                 grid.appendChild(el);
             });
 
-            // Build Pixel Grid (3x3)
+            // Build Pixel Grid
             const pGrid = document.getElementById('pixel-grid');
             for(let i=0; i<9; i++) {
                 const btn = document.createElement('div');
@@ -292,6 +328,15 @@
                 btn.id = `px-${i}`;
                 btn.onclick = () => handlePixelInput(i);
                 pGrid.appendChild(btn);
+            }
+
+            // Build Golf Grid (10x10)
+            const gGrid = document.getElementById('golf-grid');
+            for(let i=0; i<100; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile grass';
+                tile.id = `gf-${i}`;
+                gGrid.appendChild(tile);
             }
 
             updateTime();
@@ -341,16 +386,13 @@
         }
 
         function switchView(viewName) {
-            // Hide all (using display:none via class or style)
             Object.values(views).forEach(v => {
                 v.classList.remove('active');
-                v.style.display = 'none'; // Force hide
+                v.style.display = 'none';
             });
-            
-            // Show new
             const v = views[viewName];
             v.classList.add('active');
-            v.style.display = (viewName === 'pixel') ? 'flex' : 'block'; // Pixel needs flex
+            v.style.display = (viewName === 'pixel' || viewName === 'golf') ? 'flex' : 'block';
             currentView = viewName;
 
             if(viewName === 'home') {
@@ -363,19 +405,24 @@
             } else if (viewName === 'pixel') {
                 updateSoftKeys("Start", "TAP!", "Quit");
                 initPixelGame();
+            } else if (viewName === 'golf') {
+                updateSoftKeys("Reset", "SWING", "Quit");
+                initGolfGame();
             }
         }
 
         function openApp(id) {
             if (id === 'calcgame') switchView('calc');
             if (id === 'pixelsimon') switchView('pixel');
+            if (id === 'dumbgolf') switchView('golf');
         }
 
         // --- ACTIONS ---
         function handleLeftKey() {
             if (currentView === 'home') toggleOptions();
             else if (currentView === 'calc') initCalcGame();
-            else if (currentView === 'pixel') startSimonRound(); // Start
+            else if (currentView === 'pixel') startSimonRound();
+            else if (currentView === 'golf') initGolfGame();
         }
 
         function handleCenterKey() {
@@ -392,9 +439,14 @@
             } else if (currentView === 'calc') {
                 checkCalcAnswer();
             } else if (currentView === 'pixel') {
-                // Center key maps to middle button (5 / index 4)
                 handlePixelInput(4);
+            } else if (currentView === 'golf') {
+                startSwing();
             }
+        }
+
+        function handleCenterKeyRelease() {
+            if (currentView === 'golf') releaseSwing();
         }
 
         function handleRightKey() {
@@ -414,148 +466,204 @@
             localStorage.setItem('dumbos-theme', currentTheme);
         }
 
-        // --- CALC GAME LOGIC ---
-        let gScore = 0;
-        let gAnswer = 0;
-        
+        // --- CALC GAME ---
+        let gScore = 0; let gAnswer = 0;
         function initCalcGame() {
-            gScore = 0;
-            document.getElementById('g-score').innerText = gScore;
-            document.getElementById('g-msg').innerText = "";
-            nextCalcProblem();
+            gScore = 0; document.getElementById('g-score').innerText = gScore;
+            document.getElementById('g-msg').innerText = ""; nextCalcProblem();
             document.getElementById('g-input').focus();
         }
-
         function nextCalcProblem() {
             const op = Math.random() > 0.5 ? '+' : '-';
-            const a = Math.floor(Math.random() * 20) + 1;
-            const b = Math.floor(Math.random() * 20) + 1;
-            let n1 = a, n2 = b;
-            if (op === '-' && a < b) { n1 = b; n2 = a; }
+            const a = Math.floor(Math.random() * 20) + 1; const b = Math.floor(Math.random() * 20) + 1;
+            let n1 = a, n2 = b; if (op === '-' && a < b) { n1 = b; n2 = a; }
             gAnswer = (op === '+') ? n1 + n2 : n1 - n2;
             document.getElementById('g-problem').innerText = `${n1} ${op} ${n2} = ?`;
             document.getElementById('g-input').value = "";
         }
-
         function checkCalcAnswer() {
-            const input = document.getElementById('g-input');
-            const val = parseInt(input.value);
+            const val = parseInt(document.getElementById('g-input').value);
             const msg = document.getElementById('g-msg');
             if (val === gAnswer) {
-                gScore += 10;
-                msg.innerText = "CORRECT! +10";
-                msg.style.color = "var(--highlight)";
+                gScore += 10; msg.innerText = "CORRECT!"; msg.style.color = "var(--highlight)";
                 document.getElementById('g-score').innerText = gScore;
                 setTimeout(() => { msg.innerText = ""; nextCalcProblem(); }, 500);
             } else {
-                gScore = Math.max(0, gScore - 5);
-                msg.innerText = "WRONG! -5";
-                msg.style.color = "red";
+                gScore = Math.max(0, gScore - 5); msg.innerText = "WRONG!"; msg.style.color = "red";
                 document.getElementById('g-score').innerText = gScore;
             }
-            input.focus();
+            document.getElementById('g-input').focus();
         }
 
-        // --- PIXEL SIMON LOGIC ---
-        let simonSeq = [];
-        let playerSeq = [];
-        let simonLevel = 1;
-        let simonPlaying = false; // Is Simon showing sequence?
-        let inputEnabled = false; // Can player press?
-
+        // --- PIXEL SIMON ---
+        let simonSeq = [], playerSeq = [], simonLevel = 1, simonPlaying = false, inputEnabled = false;
         function initPixelGame() {
-            simonSeq = [];
-            simonLevel = 1;
+            simonSeq = []; simonLevel = 1;
             document.getElementById('p-level').innerText = simonLevel;
             document.getElementById('p-status').innerText = "Press Start Option";
             clearPixels();
         }
-
-        function stopPixelGame() {
-            simonSeq = [];
-            playerSeq = [];
-            inputEnabled = false;
-            clearPixels();
-        }
-
+        function stopPixelGame() { simonSeq = []; clearPixels(); }
         function startSimonRound() {
-            if(simonPlaying) return;
-            playerSeq = [];
-            inputEnabled = false;
+            if(simonPlaying) return; playerSeq = []; inputEnabled = false;
             document.getElementById('p-status').innerText = "Watch...";
-            
-            // Add new step
-            const next = Math.floor(Math.random() * 9);
-            simonSeq.push(next);
-            
-            playSequence();
+            simonSeq.push(Math.floor(Math.random() * 9)); playSequence();
         }
-
         function playSequence() {
-            simonPlaying = true;
-            let i = 0;
+            simonPlaying = true; let i = 0;
             const interval = setInterval(() => {
                 if(i >= simonSeq.length) {
-                    clearInterval(interval);
-                    simonPlaying = false;
-                    inputEnabled = true;
-                    document.getElementById('p-status').innerText = "Your Turn!";
-                    return;
+                    clearInterval(interval); simonPlaying = false; inputEnabled = true;
+                    document.getElementById('p-status').innerText = "Your Turn!"; return;
                 }
-                flashPixel(simonSeq[i]);
-                i++;
-            }, 800); // Speed of playback
+                flashPixel(simonSeq[i]); i++;
+            }, 600);
         }
-
         function flashPixel(idx) {
             const btn = document.getElementById(`px-${idx}`);
-            btn.classList.add('lit');
-            // Sound cue (optional, stick to visual for now)
-            setTimeout(() => {
-                btn.classList.remove('lit');
-            }, 400);
+            btn.classList.add('lit'); setTimeout(() => btn.classList.remove('lit'), 300);
         }
-
         function handlePixelInput(idx) {
             if(!inputEnabled) return;
-
-            // Visual feedback
             const btn = document.getElementById(`px-${idx}`);
-            btn.classList.add('lit');
-            setTimeout(() => btn.classList.remove('lit'), 200);
-
-            // Check
-            const currentStep = playerSeq.length;
-            if(idx === simonSeq[currentStep]) {
-                // Correct
+            btn.classList.add('lit'); setTimeout(() => btn.classList.remove('lit'), 200);
+            if(idx === simonSeq[playerSeq.length]) {
                 playerSeq.push(idx);
                 if(playerSeq.length === simonSeq.length) {
-                    // Level Complete
-                    inputEnabled = false;
-                    simonLevel++;
+                    inputEnabled = false; simonLevel++;
                     document.getElementById('p-level').innerText = simonLevel;
                     document.getElementById('p-status').innerText = "Good! Next...";
                     setTimeout(startSimonRound, 1000);
                 }
             } else {
-                // Wrong
-                inputEnabled = false;
-                document.getElementById('p-status').innerText = "GAME OVER!";
-                btn.classList.add('fail');
-                setTimeout(() => {
-                    initPixelGame(); // Reset
-                }, 2000);
+                inputEnabled = false; document.getElementById('p-status').innerText = "GAME OVER!";
+                btn.classList.add('fail'); setTimeout(initPixelGame, 2000);
             }
         }
-
         function clearPixels() {
             for(let i=0; i<9; i++) {
                 const b = document.getElementById(`px-${i}`);
-                b.classList.remove('lit');
-                b.classList.remove('fail');
+                b.classList.remove('lit'); b.classList.remove('fail');
             }
         }
 
+        // --- DUMB GOLF ---
+        let gfBall = 90; // Start bottom-leftish
+        let gfHole = 9;  // Start top-rightish
+        let gfStrokes = 0;
+        let gfAngle = 45; // Degrees
+        let gfPower = 0;
+        let gfCharging = false;
+        let gfPowerTimer = null;
+        let gfInAir = false;
+
+        function initGolfGame() {
+            gfBall = 90; gfHole = 9; gfStrokes = 0; gfAngle = 45; gfInAir = false;
+            updateGolfUI(); renderGolfGrid();
+        }
+        
+        function renderGolfGrid() {
+            // Clear grid classes
+            for(let i=0; i<100; i++) {
+                const t = document.getElementById(`gf-${i}`);
+                t.className = 'tile grass';
+                t.innerHTML = '';
+                
+                // Hazards (Simple Map)
+                if(i === 44 || i === 45 || i === 54 || i === 55) t.className = 'tile water';
+                if(i === 22 || i === 28 || i === 82) t.className = 'tile sand';
+            }
+            
+            // Draw Hole
+            const holeEl = document.getElementById(`gf-${gfHole}`);
+            holeEl.className = 'tile hole'; holeEl.innerHTML = '⛳️';
+            
+            // Draw Ball
+            const ballEl = document.getElementById(`gf-${Math.floor(gfBall)}`);
+            if(ballEl) {
+                ballEl.classList.add('ball');
+                ballEl.innerHTML = '⚪️';
+            }
+        }
+
+        function updateGolfUI() {
+            document.getElementById('gf-strokes').innerText = gfStrokes;
+            document.getElementById('gf-angle').innerText = gfAngle;
+        }
+
+        function changeGolfAngle(delta) {
+            gfAngle = (gfAngle + delta + 360) % 360;
+            updateGolfUI();
+        }
+
+        function startSwing() {
+            if(gfInAir) return;
+            if(gfCharging) return; // Already swinging?
+            
+            gfCharging = true;
+            gfPower = 0;
+            const fill = document.getElementById('gf-power-fill');
+            
+            gfPowerTimer = setInterval(() => {
+                gfPower += 5;
+                if(gfPower > 100) gfPower = 0; // Cycle
+                fill.style.width = gfPower + '%';
+            }, 30);
+        }
+
+        function releaseSwing() {
+            if(!gfCharging) return;
+            clearInterval(gfPowerTimer);
+            gfCharging = false;
+            gfInAir = true;
+            gfStrokes++;
+            updateGolfUI();
+            
+            // Physics Logic (Grid Based)
+            const rad = gfAngle * (Math.PI / 180);
+            const distance = (gfPower / 100) * 8; // Max 8 tiles
+            
+            const startX = gfBall % 10;
+            const startY = Math.floor(gfBall / 10);
+            
+            const vecX = Math.cos(rad) * distance;
+            const vecY = -Math.sin(rad) * distance; // Y is inverted (0 is top)
+            
+            let destX = Math.round(startX + vecX);
+            let destY = Math.round(startY + vecY);
+            
+            // Clamp to grid
+            destX = Math.max(0, Math.min(9, destX));
+            destY = Math.max(0, Math.min(9, destY));
+            
+            const destIdx = destY * 10 + destX;
+            
+            // Animate
+            document.getElementById('gf-msg').innerText = "Flying...";
+            
+            setTimeout(() => {
+                gfBall = destIdx;
+                renderGolfGrid();
+                gfInAir = false;
+                
+                // Check Hole
+                if(gfBall === gfHole) {
+                    document.getElementById('gf-msg').innerText = "HOLE IN ONE! 🎉";
+                } else {
+                    // Check Hazard
+                    const tile = document.getElementById(`gf-${gfBall}`);
+                    if(tile.classList.contains('water')) {
+                        document.getElementById('gf-msg').innerText = "SPLASH! 💦 (+1 Stroke)";
+                        gfStrokes++; updateGolfUI();
+                        // Reset to start? Or previous? For now just stay in water (playable)
+                    } else if (tile.classList.contains('sand')) {
+                        document.getElementById('gf-msg').innerText = "Bunker...";
+                    } else {
+                        document.getElementById('gf-msg').innerText = "";
+                    }
+                }
+            }, 1000);
+        }
 
         // --- INPUT HANDLER ---
         document.addEventListener('keydown', (e) => {
@@ -565,7 +673,7 @@
             if (k === 'F1' || k === 'SoftLeft') { handleLeftKey(); e.preventDefault(); return; }
             if (k === 'F2' || k === 'SoftRight') { handleRightKey(); e.preventDefault(); return; }
             
-            // VIEW SPECIFIC
+            // HOME
             if (currentView === 'home') {
                 const apps = getApps();
                 if (k >= '1' && k <= '9' && document.activeElement !== omni) {
@@ -573,42 +681,36 @@
                     if (apps[idx]) {
                         if(APPS[idx].isInternal) openApp(APPS[idx].id);
                         else window.location = apps[idx].href;
-                    }
-                    return;
+                    } return;
                 }
-                // Arrows...
-                if (k === 'ArrowDown') {
-                    if (focusIdx === -1) setFocus(0);
-                    else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols);
-                    e.preventDefault();
-                } 
-                else if (k === 'ArrowUp') {
-                    if (focusIdx < cols) setFocus(-1);
-                    else setFocus(focusIdx - cols);
-                    e.preventDefault();
-                }
-                else if (k === 'ArrowRight') {
-                    if (focusIdx !== -1 && (focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1);
-                    e.preventDefault();
-                }
-                else if (k === 'ArrowLeft') {
-                    if (focusIdx !== -1 && focusIdx % cols !== 0) setFocus(focusIdx - 1);
-                    e.preventDefault();
-                }
+                if (k === 'ArrowDown') { if (focusIdx === -1) setFocus(0); else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols); e.preventDefault(); } 
+                else if (k === 'ArrowUp') { if (focusIdx < cols) setFocus(-1); else setFocus(focusIdx - cols); e.preventDefault(); }
+                else if (k === 'ArrowRight') { if (focusIdx !== -1 && (focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1); e.preventDefault(); }
+                else if (k === 'ArrowLeft') { if (focusIdx !== -1 && focusIdx % cols !== 0) setFocus(focusIdx - 1); e.preventDefault(); }
                 else if (k === 'Enter') handleCenterKey();
             } 
-            else if (currentView === 'calc') {
-                if (k === 'Enter') handleCenterKey();
-            }
-            else if (currentView === 'pixel') {
-                // Numpad Support for PixelSimon (1-9)
-                if (k >= '1' && k <= '9') {
-                    handlePixelInput(parseInt(k) - 1);
+            // CALC
+            else if (currentView === 'calc') { if (k === 'Enter') handleCenterKey(); }
+            // PIXEL
+            else if (currentView === 'pixel') { if (k >= '1' && k <= '9') handlePixelInput(parseInt(k) - 1); }
+            // GOLF
+            else if (currentView === 'golf') {
+                if (k === 'ArrowLeft') { changeGolfAngle(15); e.preventDefault(); }
+                else if (k === 'ArrowRight') { changeGolfAngle(-15); e.preventDefault(); }
+                else if (k === 'Enter' || k === ' ') {
+                    if(!e.repeat) startSwing(); // Start charge on press
+                    e.preventDefault();
                 }
             }
         });
 
-        // Run Init
+        document.addEventListener('keyup', (e) => {
+            const k = e.key;
+            if (currentView === 'golf' && (k === 'Enter' || k === ' ')) {
+                releaseSwing(); // Release charge
+            }
+        });
+
         init();
     </script>
 </body>
