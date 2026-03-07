@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DumbOS v4.1 (Stable)</title>
+    <title>DumbOS v5 (CalcGame)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📟</text></svg>">
     <style>
         :root {
@@ -49,8 +49,9 @@
             flex-grow: 1;
             overflow-y: auto; /* Scrollable grid */
             padding: 4px;
+            display: none; /* Hide non-active views */
         }
-        .hidden { display: none !important; }
+        .view.active { display: block; }
 
         /* Search Box */
         .search-box {
@@ -58,7 +59,7 @@
             padding: 2px;
         }
         #omni-box {
-            width: 96%; /* Adjusted width */
+            width: 96%;
             background: #222; border: 1px solid #444; color: #fff;
             font-family: inherit; font-size: 12px; padding: 2px 4px;
             border-radius: 4px;
@@ -79,6 +80,7 @@
             text-decoration: none; color: inherit;
             border-radius: 3px;
             position: relative;
+            cursor: pointer;
         }
         .app.active, .app:focus {
             background: var(--select);
@@ -120,6 +122,22 @@
         .menu-list { padding: 5px; }
         .menu-item { padding: 8px 5px; border-bottom: 1px solid #444; cursor: pointer; }
         .menu-item:hover, .menu-item.active { background: var(--select); color: #fff; }
+        .hidden { display: none !important; }
+
+        /* --- GAME STYLES --- */
+        #view-game { text-align: center; padding-top: 20px; }
+        .game-display {
+            font-size: 24px; font-weight: bold; margin-bottom: 20px;
+            border: 2px solid var(--highlight); padding: 10px;
+            background: #111;
+        }
+        .game-input {
+            width: 80%; background: #222; border: 1px solid #555;
+            color: #fff; font-size: 18px; padding: 5px; text-align: center;
+        }
+        .game-score { font-size: 12px; margin-bottom: 10px; opacity: 0.7; }
+        .game-msg { color: var(--highlight); height: 20px; margin-top: 10px; }
+
     </style>
 </head>
 <body class="theme-default">
@@ -133,27 +151,32 @@
         </div>
     </div>
 
-    <!-- Main View (App Grid) -->
+    <!-- VIEW 1: HOME (App Grid) -->
     <div id="view-home" class="view active">
-        
-        <!-- Quick Search (Type here directly) -->
         <div class="search-box">
             <input type="text" id="omni-box" placeholder="Search..." tabindex="0">
         </div>
-
         <div class="grid" id="app-grid">
             <!-- Apps injected by JS -->
         </div>
     </div>
 
-    <!-- Soft Keys (Bottom Toolbar) -->
-    <div class="soft-keys">
-        <div class="soft-key left" id="sk-left" onclick="toggleOptions()">Options</div>
-        <div class="soft-key center" id="sk-center" onclick="handleCenterKey()">SELECT</div>
-        <div class="soft-key right" id="sk-right" onclick="history.back()">Back</div>
+    <!-- VIEW 2: CALC GAME -->
+    <div id="view-game" class="view">
+        <div class="game-score">Score: <span id="g-score">0</span></div>
+        <div class="game-display" id="g-problem">READY?</div>
+        <input type="tel" id="g-input" class="game-input" placeholder="?">
+        <div class="game-msg" id="g-msg"></div>
     </div>
 
-    <!-- Options Menu (Popup) -->
+    <!-- Soft Keys -->
+    <div class="soft-keys">
+        <div class="soft-key left" id="sk-left" onclick="handleLeftKey()">Options</div>
+        <div class="soft-key center" id="sk-center" onclick="handleCenterKey()">SELECT</div>
+        <div class="soft-key right" id="sk-right" onclick="handleRightKey()">Back</div>
+    </div>
+
+    <!-- Options Menu -->
     <div id="options-menu" class="popup hidden">
         <div class="popup-title">Options</div>
         <div class="menu-list">
@@ -165,6 +188,7 @@
     <script>
         // --- DATA ---
         const APPS = [
+            { id: "calcgame", icon: "🧮", name: "CalcGame", isInternal: true }, // NEW GAME
             { url: "http://frogfind.com", icon: "🐸", name: "FrogFind" },
             { url: "https://lite.duckduckgo.com/lite", icon: "🦆", name: "DDG Lite" },
             { url: "https://wiby.me", icon: "🕸️", name: "Wiby" },
@@ -190,15 +214,23 @@
         const grid = document.getElementById('app-grid');
         const omni = document.getElementById('omni-box');
         const optionsMenu = document.getElementById('options-menu');
+        
+        // Views
+        const views = {
+            home: document.getElementById('view-home'),
+            game: document.getElementById('view-game')
+        };
+        let currentView = 'home';
 
         // --- INIT ---
         function init() {
             // Build Grid
             APPS.forEach((app, i) => {
                 const el = document.createElement('a');
-                el.href = app.url;
+                if(!app.isInternal) el.href = app.url;
+                else el.onclick = () => openApp(app.id); // Internal App Handler
+                
                 el.className = 'app';
-                // Add tabindex so they are focusable
                 el.tabIndex = i + 1; 
                 el.innerHTML = `
                     <span class="app-num">${i+1}</span>
@@ -208,11 +240,8 @@
                 grid.appendChild(el);
             });
 
-            // Start Clock
             updateTime();
             setInterval(updateTime, 1000);
-
-            // Set Initial Focus (Search Box)
             setFocus(-1);
         }
 
@@ -221,22 +250,19 @@
             document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         }
 
-        // --- NAVIGATION STATE ---
-        let focusIdx = -1; // -1 = Search Box, 0+ = App Grid
-        let appsNodeList = []; // Will populate after init
+        // --- NAVIGATION ---
+        let focusIdx = -1; 
+        let appsNodeList = [];
         const cols = 3;
 
         function getApps() {
-            if (appsNodeList.length === 0) {
-                appsNodeList = document.querySelectorAll('.app');
-            }
+            if (appsNodeList.length === 0) appsNodeList = document.querySelectorAll('.app');
             return appsNodeList;
         }
 
         function setFocus(idx) {
+            if(currentView !== 'home') return;
             const apps = getApps();
-            
-            // Clear old focus
             apps.forEach(a => a.classList.remove('active'));
             omni.blur();
 
@@ -260,18 +286,51 @@
             document.getElementById('sk-right').textContent = right;
         }
 
-        // --- ACTIONS ---
-        function handleCenterKey() {
-            if (focusIdx === -1) {
-                // Search
-                if(omni.value.trim() !== "") {
-                    window.location = `https://www.google.com/search?q=${encodeURIComponent(omni.value)}`;
-                }
-            } else {
-                // Open App
-                const apps = getApps();
-                if(apps[focusIdx]) window.location = apps[focusIdx].href;
+        function switchView(viewName) {
+            // Hide all
+            Object.values(views).forEach(v => v.classList.remove('active'));
+            // Show new
+            views[viewName].classList.add('active');
+            currentView = viewName;
+
+            if(viewName === 'home') {
+                updateSoftKeys("Options", "OPEN", "Back");
+                setFocus(focusIdx);
+            } else if (viewName === 'game') {
+                updateSoftKeys("Reset", "SUBMIT", "Quit");
+                initGame();
             }
+        }
+
+        function openApp(id) {
+            if (id === 'calcgame') switchView('game');
+        }
+
+        // --- ACTIONS ---
+        function handleLeftKey() {
+            if (currentView === 'home') toggleOptions();
+            else if (currentView === 'game') initGame(); // Reset
+        }
+
+        function handleCenterKey() {
+            if (currentView === 'home') {
+                if (focusIdx === -1) {
+                    if(omni.value.trim() !== "") window.location = `https://www.google.com/search?q=${encodeURIComponent(omni.value)}`;
+                } else {
+                    const apps = getApps();
+                    if(apps[focusIdx]) {
+                        if(APPS[focusIdx].isInternal) openApp(APPS[focusIdx].id);
+                        else window.location = apps[focusIdx].href;
+                    }
+                }
+            } else if (currentView === 'game') {
+                checkAnswer();
+            }
+        }
+
+        function handleRightKey() {
+            if (currentView === 'game') switchView('home');
+            else history.back();
         }
 
         function toggleOptions() {
@@ -286,46 +345,96 @@
             localStorage.setItem('dumbos-theme', currentTheme);
         }
 
+        // --- CALC GAME LOGIC ---
+        let gScore = 0;
+        let gAnswer = 0;
+        
+        function initGame() {
+            gScore = 0;
+            document.getElementById('g-score').innerText = gScore;
+            document.getElementById('g-msg').innerText = "";
+            nextProblem();
+            document.getElementById('g-input').focus();
+        }
+
+        function nextProblem() {
+            const op = Math.random() > 0.5 ? '+' : '-';
+            const a = Math.floor(Math.random() * 20) + 1; // 1-20
+            const b = Math.floor(Math.random() * 20) + 1;
+            
+            // Avoid negative answers for simplicity
+            let n1 = a, n2 = b;
+            if (op === '-' && a < b) { n1 = b; n2 = a; }
+
+            gAnswer = (op === '+') ? n1 + n2 : n1 - n2;
+            document.getElementById('g-problem').innerText = `${n1} ${op} ${n2} = ?`;
+            document.getElementById('g-input').value = "";
+        }
+
+        function checkAnswer() {
+            const input = document.getElementById('g-input');
+            const val = parseInt(input.value);
+            const msg = document.getElementById('g-msg');
+
+            if (val === gAnswer) {
+                gScore += 10;
+                msg.innerText = "CORRECT! +10";
+                msg.style.color = "var(--highlight)";
+                document.getElementById('g-score').innerText = gScore;
+                setTimeout(() => {
+                    msg.innerText = "";
+                    nextProblem();
+                }, 500);
+            } else {
+                gScore = Math.max(0, gScore - 5);
+                msg.innerText = "WRONG! -5";
+                msg.style.color = "red";
+                document.getElementById('g-score').innerText = gScore;
+            }
+            input.focus();
+        }
+
         // --- INPUT HANDLER ---
         document.addEventListener('keydown', (e) => {
             const k = e.key;
-            const apps = getApps();
-
-            // Number Shortcuts (1-9)
-            if (k >= '1' && k <= '9' && document.activeElement !== omni) {
-                const idx = parseInt(k) - 1;
-                if (apps[idx]) window.location = apps[idx].href;
-                return;
+            
+            if (currentView === 'home') {
+                const apps = getApps();
+                if (k >= '1' && k <= '9' && document.activeElement !== omni) {
+                    const idx = parseInt(k) - 1;
+                    if (apps[idx]) {
+                        if(APPS[idx].isInternal) openApp(APPS[idx].id);
+                        else window.location = apps[idx].href;
+                    }
+                    return;
+                }
+                if (k === 'ArrowDown') {
+                    if (focusIdx === -1) setFocus(0);
+                    else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols);
+                    e.preventDefault();
+                } 
+                else if (k === 'ArrowUp') {
+                    if (focusIdx < cols) setFocus(-1);
+                    else setFocus(focusIdx - cols);
+                    e.preventDefault();
+                }
+                else if (k === 'ArrowRight') {
+                    if (focusIdx !== -1 && (focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1);
+                    e.preventDefault();
+                }
+                else if (k === 'ArrowLeft') {
+                    if (focusIdx !== -1 && focusIdx % cols !== 0) setFocus(focusIdx - 1);
+                    e.preventDefault();
+                }
+            } else if (currentView === 'game') {
+                // Allow typing numbers
+                if (k === 'Enter') handleCenterKey();
             }
 
-            // D-Pad Navigation
-            if (k === 'ArrowDown') {
-                if (focusIdx === -1) setFocus(0); // From Search to Grid
-                else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols);
-                e.preventDefault();
-            } 
-            else if (k === 'ArrowUp') {
-                if (focusIdx < cols) setFocus(-1); // To Search
-                else setFocus(focusIdx - cols);
-                e.preventDefault();
-            }
-            else if (k === 'ArrowRight') {
-                if (focusIdx === -1) return;
-                if ((focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1);
-                e.preventDefault();
-            }
-            else if (k === 'ArrowLeft') {
-                if (focusIdx === -1) return;
-                if (focusIdx % cols !== 0) setFocus(focusIdx - 1);
-                e.preventDefault();
-            }
-            else if (k === 'Enter') {
-                handleCenterKey();
-            }
-            else if (k === 'F1' || k === 'SoftLeft') {
-                toggleOptions();
-                e.preventDefault();
-            }
+            // Global Keys
+            if (k === 'Enter' && currentView === 'home') handleCenterKey();
+            else if (k === 'F1' || k === 'SoftLeft') { handleLeftKey(); e.preventDefault(); }
+            else if (k === 'F2' || k === 'SoftRight') { handleRightKey(); e.preventDefault(); }
         });
 
         // Run Init
