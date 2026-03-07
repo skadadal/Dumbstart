@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DumbStart v2</title>
+    <style>
+        :root {
+            --bg: #000;
+            --fg: #ddd;
+            --highlight: #00ff00;
+            --select: #333;
+        }
+        body {
+            margin: 0; padding: 2px;
+            background: var(--bg); color: var(--fg);
+            font-family: 'Courier New', monospace;
+            font-size: 10px; /* Tiny text for small screens */
+            display: flex; flex-direction: column; height: 100vh;
+        }
+        /* Top Bar */
+        .header {
+            display: flex; justify-content: space-between;
+            border-bottom: 1px solid #444;
+            padding: 2px 5px; margin-bottom: 5px;
+            font-weight: bold; font-size: 11px;
+        }
+        
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 Icons across */
+            gap: 2px;
+            flex-grow: 1; /* Fill remaining space */
+            align-content: start;
+        }
+        
+        /* Icon Items */
+        .app {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 5px 2px;
+            border: 1px solid transparent;
+            text-decoration: none; color: inherit;
+            border-radius: 3px;
+        }
+        .app.active, .app:focus {
+            background: var(--select);
+            border-color: var(--highlight);
+            color: #fff; outline: none;
+        }
+        .icon { font-size: 18px; margin-bottom: 2px; } /* Big icon */
+        .name { font-size: 9px; text-align: center; white-space: nowrap; overflow: hidden; max-width: 100%; }
+
+        /* Tools Section (Bottom) */
+        .widgets {
+            border-top: 1px solid #444;
+            padding: 2px;
+            display: flex; justify-content: space-around;
+            font-size: 10px;
+        }
+        .widget { text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <span id="clock">--:--</span>
+        <span id="battery">🔋??%</span>
+    </div>
+
+    <div class="grid" id="menu">
+        <!-- Search -->
+        <a href="http://frogfind.com" class="app">
+            <span class="icon">🐸</span><span class="name">FrogFind</span>
+        </a>
+        <a href="https://lite.duckduckgo.com/lite" class="app">
+            <span class="icon">🦆</span><span class="name">DDG Lite</span>
+        </a>
+        <a href="https://wiby.me" class="app">
+            <span class="icon">🕸️</span><span class="name">Wiby</span>
+        </a>
+
+        <!-- Social/News -->
+        <a href="https://old.reddit.com" class="app">
+            <span class="icon">👽</span><span class="name">Reddit</span>
+        </a>
+        <a href="https://news.ycombinator.com" class="app">
+            <span class="icon">👾</span><span class="name">HackerN</span>
+        </a>
+        <a href="https://mbasic.facebook.com" class="app">
+            <span class="icon">👥</span><span class="name">FB Basic</span>
+        </a>
+        <a href="https://mobile.twitter.com" class="app">
+            <span class="icon">🐦</span><span class="name">Twitter</span>
+        </a>
+        <a href="https://text.npr.org" class="app">
+            <span class="icon">📰</span><span class="name">NPR Txt</span>
+        </a>
+        <a href="https://lite.cnn.com" class="app">
+            <span class="icon">🗞️</span><span class="name">CNN Lite</span>
+        </a>
+
+        <!-- Utils -->
+        <a href="https://wttr.in" class="app">
+            <span class="icon">☁️</span><span class="name">Weather</span>
+        </a>
+        <a href="https://en.m.wikipedia.org" class="app">
+            <span class="icon">📚</span><span class="name">Wiki</span>
+        </a>
+        <a href="https://maps.google.com" class="app">
+            <span class="icon">🗺️</span><span class="name">Maps</span>
+        </a>
+        <a href="https://translate.google.com/m" class="app">
+            <span class="icon">🈯</span><span class="name">Translat</span>
+        </a>
+        <a href="https://gmail.com" class="app">
+            <span class="icon">✉️</span><span class="name">Gmail</span>
+        </a>
+        <a href="https://github.com" class="app">
+            <span class="icon">🐙</span><span class="name">GitHub</span>
+        </a>
+    </div>
+
+    <div class="widgets">
+        <div class="widget" id="date">--/--</div>
+        <div class="widget">Signal: 📶</div>
+    </div>
+
+    <script>
+        // Clock & Date
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('date').textContent = now.toLocaleDateString([], {month:'short', day:'numeric'});
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Battery (if supported)
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(batt => {
+                const updateBatt = () => {
+                    document.getElementById('battery').textContent = `🔋${Math.round(batt.level * 100)}%`;
+                };
+                batt.addEventListener('levelchange', updateBatt);
+                updateBatt();
+            });
+        }
+
+        // D-Pad Navigation (Grid Aware)
+        const items = Array.from(document.querySelectorAll('.app'));
+        let idx = 0;
+        const COLS = 3; // Must match grid CSS
+
+        function focusItem(newIdx) {
+            items[idx].classList.remove('active');
+            idx = (newIdx + items.length) % items.length;
+            items[idx].classList.add('active');
+            items[idx].focus();
+        }
+
+        // Init focus
+        focusItem(0);
+
+        document.addEventListener('keydown', (e) => {
+            const k = e.key;
+            if (k === 'ArrowRight' || k === '6') focusItem(idx + 1);
+            else if (k === 'ArrowLeft' || k === '4') focusItem(idx - 1);
+            else if (k === 'ArrowDown' || k === '2' || k === '8') focusItem(idx + COLS);
+            else if (k === 'ArrowUp' || k === '8' || k === '2') focusItem(idx - COLS);
+            else if (k === 'Enter' || k === '5') window.location = items[idx].href;
+        });
+    </script>
+</body>
+</html>
