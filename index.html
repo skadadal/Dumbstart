@@ -3,9 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DumbOS v4</title>
-    <link rel="stylesheet" href="style.css">
+    <title>DumbOS v4.1 (Stable)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📟</text></svg>">
+    <style>
+        :root {
+            --bg: #000;
+            --fg: #e0e0e0;
+            --highlight: #0f0;
+            --select: #333;
+            --font: 'Courier New', monospace;
+            --status-h: 18px;
+            --soft-h: 24px;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background: var(--bg); color: var(--fg);
+            font-family: var(--font);
+            font-size: 11px;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            touch-action: pan-y;
+        }
+
+        /* Themes */
+        body.red { --highlight: #ff0000; --select: #500; --bg: #200; }
+        body.green { --highlight: #00ff00; --select: #050; --bg: #020; }
+        body.amber { --highlight: #ffaa00; --select: #530; --bg: #210; }
+        body.blue { --highlight: #00ccff; --select: #003; --bg: #001; }
+
+        /* Status Bar */
+        .status-bar {
+            height: var(--status-h);
+            background: #111;
+            border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 4px;
+            font-size: 10px;
+        }
+        .bold { font-weight: bold; }
+
+        /* Main View */
+        .view {
+            flex-grow: 1;
+            overflow-y: auto; /* Scrollable grid */
+            padding: 4px;
+        }
+        .hidden { display: none !important; }
+
+        /* Search Box */
+        .search-box {
+            margin-bottom: 5px;
+            padding: 2px;
+        }
+        #omni-box {
+            width: 96%; /* Adjusted width */
+            background: #222; border: 1px solid #444; color: #fff;
+            font-family: inherit; font-size: 12px; padding: 2px 4px;
+            border-radius: 4px;
+        }
+        #omni-box:focus { border-color: var(--highlight); outline: none; background: #000; }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+        }
+
+        .app {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 6px 2px;
+            border: 1px solid transparent;
+            text-decoration: none; color: inherit;
+            border-radius: 3px;
+            position: relative;
+        }
+        .app.active, .app:focus {
+            background: var(--select);
+            border-color: var(--highlight);
+            color: #fff; outline: none;
+        }
+        .app-num {
+            position: absolute; top: 1px; left: 1px;
+            font-size: 8px; opacity: 0.5;
+        }
+        .icon { font-size: 20px; margin-bottom: 2px; }
+        .name { font-size: 10px; text-align: center; white-space: nowrap; overflow: hidden; max-width: 100%; }
+
+        /* Soft Keys (Toolbar) */
+        .soft-keys {
+            height: var(--soft-h);
+            background: #111;
+            border-top: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        .soft-key { width: 33%; text-align: center; cursor: pointer; }
+        .left { text-align: left; }
+        .right { text-align: right; }
+        .center { font-weight: bold; }
+
+        /* Popups */
+        .popup {
+            position: absolute; bottom: var(--soft-h); left: 0; right: 0;
+            background: #222; border-top: 2px solid var(--highlight);
+            z-index: 100;
+        }
+        .popup-title {
+            background: var(--highlight); color: #000;
+            padding: 2px 5px; font-weight: bold; text-align: center;
+        }
+        .menu-list { padding: 5px; }
+        .menu-item { padding: 8px 5px; border-bottom: 1px solid #444; cursor: pointer; }
+        .menu-item:hover, .menu-item.active { background: var(--select); color: #fff; }
+    </style>
 </head>
 <body class="theme-default">
 
@@ -33,22 +148,188 @@
 
     <!-- Soft Keys (Bottom Toolbar) -->
     <div class="soft-keys">
-        <div class="soft-key left" id="sk-left">Options</div>
-        <div class="soft-key center" id="sk-center">SELECT</div>
-        <div class="soft-key right" id="sk-right">Back</div>
+        <div class="soft-key left" id="sk-left" onclick="toggleOptions()">Options</div>
+        <div class="soft-key center" id="sk-center" onclick="handleCenterKey()">SELECT</div>
+        <div class="soft-key right" id="sk-right" onclick="history.back()">Back</div>
     </div>
 
     <!-- Options Menu (Popup) -->
     <div id="options-menu" class="popup hidden">
         <div class="popup-title">Options</div>
         <div class="menu-list">
-            <div class="menu-item" data-action="theme">🎨 Change Theme</div>
-            <div class="menu-item" data-action="edit">✏️ Edit Apps (Soon)</div>
-            <div class="menu-item" data-action="about">ℹ️ About</div>
+            <div class="menu-item" onclick="cycleTheme()">🎨 Change Theme</div>
+            <div class="menu-item" onclick="toggleOptions()">❌ Close Menu</div>
         </div>
     </div>
 
-    <script src="data.js"></script>
-    <script src="script.js"></script>
+    <script>
+        // --- DATA ---
+        const APPS = [
+            { url: "http://frogfind.com", icon: "🐸", name: "FrogFind" },
+            { url: "https://lite.duckduckgo.com/lite", icon: "🦆", name: "DDG Lite" },
+            { url: "https://wiby.me", icon: "🕸️", name: "Wiby" },
+            { url: "https://old.reddit.com", icon: "👽", name: "Reddit" },
+            { url: "https://news.ycombinator.com", icon: "👾", name: "HackerN" },
+            { url: "https://mbasic.facebook.com", icon: "👥", name: "FB Basic" },
+            { url: "https://mobile.twitter.com", icon: "🐦", name: "Twitter" },
+            { url: "https://text.npr.org", icon: "📰", name: "NPR Txt" },
+            { url: "https://lite.cnn.com", icon: "🗞️", name: "CNN Lite" },
+            { url: "https://wttr.in", icon: "☁️", name: "Weather" },
+            { url: "https://en.m.wikipedia.org", icon: "📚", name: "Wiki" },
+            { url: "https://maps.google.com", icon: "🗺️", name: "Maps" },
+            { url: "https://translate.google.com/m", icon: "🈯", name: "Translat" },
+            { url: "https://gmail.com", icon: "✉️", name: "Gmail" },
+            { url: "https://github.com", icon: "🐙", name: "GitHub" }
+        ];
+
+        const THEMES = ['default', 'red', 'green', 'amber', 'blue'];
+        let currentTheme = localStorage.getItem('dumbos-theme') || 'default';
+        document.body.className = currentTheme;
+
+        // --- DOM ---
+        const grid = document.getElementById('app-grid');
+        const omni = document.getElementById('omni-box');
+        const optionsMenu = document.getElementById('options-menu');
+
+        // --- INIT ---
+        function init() {
+            // Build Grid
+            APPS.forEach((app, i) => {
+                const el = document.createElement('a');
+                el.href = app.url;
+                el.className = 'app';
+                // Add tabindex so they are focusable
+                el.tabIndex = i + 1; 
+                el.innerHTML = `
+                    <span class="app-num">${i+1}</span>
+                    <span class="icon">${app.icon}</span>
+                    <span class="name">${app.name}</span>
+                `;
+                grid.appendChild(el);
+            });
+
+            // Start Clock
+            updateTime();
+            setInterval(updateTime, 1000);
+
+            // Set Initial Focus (Search Box)
+            setFocus(-1);
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        }
+
+        // --- NAVIGATION STATE ---
+        let focusIdx = -1; // -1 = Search Box, 0+ = App Grid
+        let appsNodeList = []; // Will populate after init
+        const cols = 3;
+
+        function getApps() {
+            if (appsNodeList.length === 0) {
+                appsNodeList = document.querySelectorAll('.app');
+            }
+            return appsNodeList;
+        }
+
+        function setFocus(idx) {
+            const apps = getApps();
+            
+            // Clear old focus
+            apps.forEach(a => a.classList.remove('active'));
+            omni.blur();
+
+            if (idx < 0) {
+                focusIdx = -1;
+                omni.focus();
+                updateSoftKeys("Options", "SEARCH", "Back");
+            } else {
+                focusIdx = idx;
+                if(apps[focusIdx]) {
+                    apps[focusIdx].classList.add('active');
+                    apps[focusIdx].focus();
+                    updateSoftKeys("Options", "OPEN", "Back");
+                }
+            }
+        }
+
+        function updateSoftKeys(left, center, right) {
+            document.getElementById('sk-left').textContent = left;
+            document.getElementById('sk-center').textContent = center;
+            document.getElementById('sk-right').textContent = right;
+        }
+
+        // --- ACTIONS ---
+        function handleCenterKey() {
+            if (focusIdx === -1) {
+                // Search
+                if(omni.value.trim() !== "") {
+                    window.location = `https://www.google.com/search?q=${encodeURIComponent(omni.value)}`;
+                }
+            } else {
+                // Open App
+                const apps = getApps();
+                if(apps[focusIdx]) window.location = apps[focusIdx].href;
+            }
+        }
+
+        function toggleOptions() {
+            optionsMenu.classList.toggle('hidden');
+        }
+
+        function cycleTheme() {
+            let idx = THEMES.indexOf(currentTheme);
+            idx = (idx + 1) % THEMES.length;
+            currentTheme = THEMES[idx];
+            document.body.className = currentTheme;
+            localStorage.setItem('dumbos-theme', currentTheme);
+        }
+
+        // --- INPUT HANDLER ---
+        document.addEventListener('keydown', (e) => {
+            const k = e.key;
+            const apps = getApps();
+
+            // Number Shortcuts (1-9)
+            if (k >= '1' && k <= '9' && document.activeElement !== omni) {
+                const idx = parseInt(k) - 1;
+                if (apps[idx]) window.location = apps[idx].href;
+                return;
+            }
+
+            // D-Pad Navigation
+            if (k === 'ArrowDown') {
+                if (focusIdx === -1) setFocus(0); // From Search to Grid
+                else if (focusIdx + cols < apps.length) setFocus(focusIdx + cols);
+                e.preventDefault();
+            } 
+            else if (k === 'ArrowUp') {
+                if (focusIdx < cols) setFocus(-1); // To Search
+                else setFocus(focusIdx - cols);
+                e.preventDefault();
+            }
+            else if (k === 'ArrowRight') {
+                if (focusIdx === -1) return;
+                if ((focusIdx + 1) % cols !== 0 && focusIdx + 1 < apps.length) setFocus(focusIdx + 1);
+                e.preventDefault();
+            }
+            else if (k === 'ArrowLeft') {
+                if (focusIdx === -1) return;
+                if (focusIdx % cols !== 0) setFocus(focusIdx - 1);
+                e.preventDefault();
+            }
+            else if (k === 'Enter') {
+                handleCenterKey();
+            }
+            else if (k === 'F1' || k === 'SoftLeft') {
+                toggleOptions();
+                e.preventDefault();
+            }
+        });
+
+        // Run Init
+        init();
+    </script>
 </body>
 </html>
