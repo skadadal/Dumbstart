@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Maps</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; z-index: 1000; }
+        
+        .view { flex-grow:1; position: relative; }
+        #map { height: 100%; width: 100%; background: #222; }
+        
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; z-index: 1000; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+        
+        /* Dark Mode Map Filter */
+        .leaflet-layer, .leaflet-control-zoom-in, .leaflet-control-zoom-out, .leaflet-control-attribution { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Maps</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div id="map"></div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="locate()">Locate</div>
+        <div class="soft-key center" onclick="zoomIn()">Zoom+</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        let map;
+        let marker;
+
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+
+            // Init Map (Default: Null Island)
+            map = L.map('map', {zoomControl: false}).setView([0, 0], 2);
+            
+            // OpenStreetMap Tiles
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OSM'
+            }).addTo(map);
+
+            locate();
+        }
+
+        function locate() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    
+                    map.setView([lat, lon], 13);
+                    
+                    if(marker) map.removeLayer(marker);
+                    marker = L.marker([lat, lon]).addTo(map)
+                        .bindPopup("You are here").openPopup();
+                });
+            }
+        }
+
+        function zoomIn() { map.zoomIn(); }
+        function zoomOut() { map.zoomOut(); }
+
+        document.addEventListener('keydown', (e) => {
+            const step = 100;
+            if(e.key === 'ArrowUp') map.panBy([0, -step]);
+            if(e.key === 'ArrowDown') map.panBy([0, step]);
+            if(e.key === 'ArrowLeft') map.panBy([-step, 0]);
+            if(e.key === 'ArrowRight') map.panBy([step, 0]);
+            
+            if(e.key === '1') zoomOut();
+            if(e.key === '3') zoomIn();
+            
+            if(e.key === 'F1') locate();
+            if(e.key === 'F2') history.back();
+            if(e.key === 'Enter') zoomIn();
+        });
+
+        init();
+    </script>
+</body>
+</html>
