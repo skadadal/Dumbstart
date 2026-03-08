@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Notes</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        .view { flex-grow:1; display:flex; flex-direction:column; padding:10px; }
+        textarea {
+            flex-grow: 1; background: #111; color: #fff; border: 1px solid #444;
+            padding: 10px; font-family: inherit; font-size: 14px; resize: none;
+            border-radius: 4px; outline: none;
+        }
+        textarea:focus { border-color: var(--highlight); }
+        .status-msg { height: 20px; color: #888; font-size: 12px; margin-top: 5px; }
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Notepad</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <textarea id="note-area" placeholder="Type notes here..."></textarea>
+        <div class="status-msg" id="status">Saved</div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="clearNote()">Clear</div>
+        <div class="soft-key center" onclick="saveNote()">SAVE</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        const area = document.getElementById('note-area');
+        const status = document.getElementById('status');
+
+        function init() {
+            // Load saved note
+            const saved = localStorage.getItem('dumbos-note');
+            if(saved) area.value = saved;
+
+            // Auto-save on type
+            area.addEventListener('input', () => {
+                status.innerText = "Typing...";
+                clearTimeout(window.saveTimer);
+                window.saveTimer = setTimeout(saveNote, 1000);
+            });
+
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            
+            area.focus();
+        }
+
+        function saveNote() {
+            localStorage.setItem('dumbos-note', area.value);
+            status.innerText = "Saved to Storage";
+            status.style.color = "var(--highlight)";
+            setTimeout(() => { status.style.color = "#888"; }, 2000);
+        }
+
+        function clearNote() {
+            if(confirm("Clear note?")) {
+                area.value = "";
+                saveNote();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'F1') clearNote();
+            if(e.key === 'F2') history.back();
+        });
+
+        init();
+    </script>
+</body>
+</html>
