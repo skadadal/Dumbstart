@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - PixelSimon</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:11px; display:flex; flex-direction:column; height:100vh; overflow:hidden; user-select:none; }
+        .status-bar { height:18px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 4px; font-size:10px; }
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        
+        .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; width:80%; aspect-ratio:1/1; }
+        .btn { background:#222; border:2px solid #444; border-radius:5px; cursor:pointer; }
+        .btn.lit { background:var(--highlight); border-color:#fff; box-shadow:0 0 10px var(--highlight); }
+        .btn.fail { background:red !important; }
+        
+        .score-box { font-size:18px; margin-bottom:10px; font-weight:bold; }
+        .status { height:20px; color:#888; margin-bottom:10px; }
+
+        .soft-keys { height:24px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 4px; font-size:10px; text-transform:uppercase; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>PixelSimon</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div class="score-box">Level: <span id="level">1</span></div>
+        <div class="status" id="status">Press Start</div>
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="startGame()">Start</div>
+        <div class="soft-key center" onclick="handleCenter()">TAP</div>
+        <div class="soft-key right" onclick="history.back()">Quit</div>
+    </div>
+
+    <script>
+        let seq=[], playerSeq=[], level=1, playing=false, inputEnabled=false;
+
+        function init() {
+            const grid = document.getElementById('grid');
+            for(let i=0; i<9; i++) {
+                const btn = document.createElement('div');
+                btn.className = 'btn';
+                btn.id = `b-${i}`;
+                btn.onclick = () => handleInput(i);
+                grid.appendChild(btn);
+            }
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            document.addEventListener('keydown', handleKey);
+        }
+
+        function startGame() {
+            if(playing) return;
+            seq=[]; level=1; playerSeq=[];
+            document.getElementById('level').innerText = 1;
+            document.getElementById('status').innerText = "Watch...";
+            playing = true;
+            nextRound();
+        }
+
+        function nextRound() {
+            playerSeq = []; inputEnabled = false;
+            seq.push(Math.floor(Math.random() * 9));
+            playSeq();
+        }
+
+        function playSeq() {
+            let i = 0;
+            const int = setInterval(() => {
+                if(i >= seq.length) {
+                    clearInterval(int);
+                    inputEnabled = true;
+                    document.getElementById('status').innerText = "Your Turn!";
+                    return;
+                }
+                flash(seq[i]);
+                i++;
+            }, 600);
+        }
+
+        function flash(i) {
+            const b = document.getElementById(`b-${i}`);
+            b.classList.add('lit');
+            setTimeout(() => b.classList.remove('lit'), 300);
+        }
+
+        function handleInput(i) {
+            if(!inputEnabled) return;
+            flash(i);
+            
+            if(i === seq[playerSeq.length]) {
+                playerSeq.push(i);
+                if(playerSeq.length === seq.length) {
+                    inputEnabled = false;
+                    level++;
+                    document.getElementById('level').innerText = level;
+                    document.getElementById('status').innerText = "Good!";
+                    setTimeout(nextRound, 1000);
+                }
+            } else {
+                gameOver(i);
+            }
+        }
+
+        function gameOver(i) {
+            inputEnabled = false; playing = false;
+            document.getElementById('status').innerText = "GAME OVER";
+            document.getElementById(`b-${i}`).classList.add('fail');
+            setTimeout(() => document.getElementById(`b-${i}`).classList.remove('fail'), 1000);
+        }
+
+        function handleKey(e) {
+            const k = e.key;
+            if(k >= '1' && k <= '9') handleInput(parseInt(k)-1);
+            if(k === 'F1' || k === 'SoftLeft') startGame();
+            if(k === 'F2' || k === 'SoftRight') history.back();
+            if(k === 'Enter' || k === '5') handleInput(4);
+        }
+        
+        function handleCenter() { handleInput(4); } // Center button hits middle
+
+        init();
+    </script>
+</body>
+</html>

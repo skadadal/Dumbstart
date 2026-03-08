@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - CalcGame</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧮</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:11px; display:flex; flex-direction:column; height:100vh; overflow:hidden; user-select:none; }
+        .status-bar { height:18px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 4px; font-size:10px; }
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; padding-top:20px; }
+        
+        .game-display { font-size:24px; font-weight:bold; margin-bottom:20px; border:2px solid var(--highlight); padding:10px; background:#111; }
+        .game-input { width:80%; background:#222; border:1px solid #555; color:#fff; font-size:18px; padding:5px; text-align:center; }
+        .game-score-box { font-size:12px; margin-bottom:10px; opacity:0.8; }
+        .game-msg { height:20px; margin-top:10px; font-weight:bold; }
+
+        .soft-keys { height:24px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 4px; font-size:10px; text-transform:uppercase; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>CalcGame</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div class="game-score-box">Score: <span id="score">0</span></div>
+        <div class="game-display" id="problem">READY?</div>
+        <input type="tel" id="input" class="game-input" placeholder="?">
+        <div class="game-msg" id="msg"></div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="resetGame()">Reset</div>
+        <div class="soft-key center" onclick="checkAnswer()">SUBMIT</div>
+        <div class="soft-key right" onclick="history.back()">Quit</div>
+    </div>
+
+    <script>
+        let score = 0, answer = 0;
+        
+        function init() {
+            resetGame();
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            document.addEventListener('keydown', handleInput);
+        }
+
+        function resetGame() {
+            score = 0; document.getElementById('score').innerText = 0;
+            document.getElementById('msg').innerText = "";
+            nextProblem();
+            document.getElementById('input').focus();
+        }
+
+        function nextProblem() {
+            const op = Math.random() > 0.5 ? '+' : '-';
+            const a = Math.floor(Math.random() * 20) + 1;
+            const b = Math.floor(Math.random() * 20) + 1;
+            let n1 = a, n2 = b;
+            if (op === '-' && a < b) { n1 = b; n2 = a; }
+            answer = (op === '+') ? n1 + n2 : n1 - n2;
+            document.getElementById('problem').innerText = `${n1} ${op} ${n2} = ?`;
+            document.getElementById('input').value = "";
+        }
+
+        function checkAnswer() {
+            const val = parseInt(document.getElementById('input').value);
+            const msg = document.getElementById('msg');
+            if (val === answer) {
+                score += 10; msg.innerText = "CORRECT!"; msg.style.color = "var(--highlight)";
+                document.getElementById('score').innerText = score;
+                setTimeout(() => { msg.innerText = ""; nextProblem(); }, 500);
+            } else {
+                score = Math.max(0, score - 5); msg.innerText = "WRONG!"; msg.style.color = "red";
+                document.getElementById('score').innerText = score;
+            }
+            document.getElementById('input').focus();
+        }
+
+        function handleInput(e) {
+            if (e.key === 'Enter') checkAnswer();
+            if (e.key === 'F1' || e.key === 'SoftLeft') resetGame();
+            if (e.key === 'F2' || e.key === 'SoftRight') history.back();
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - DumbGolf</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛳️</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:11px; display:flex; flex-direction:column; height:100vh; overflow:hidden; user-select:none; }
+        .status-bar { height:18px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 4px; font-size:10px; }
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        
+        .course { display:grid; grid-template-columns:repeat(10, 1fr); gap:1px; background:#050; border:2px solid #fff; width:90%; aspect-ratio:1/1; }
+        .tile { background:#000; display:flex; align-items:center; justify-content:center; font-size:12px; }
+        .grass { background:#131; } .sand { background:#cca; } .water { background:#00f; } .hole { background:#000; border:1px solid #fff; border-radius:50%; } .ball { background:#fff; border-radius:50%; z-index:10; }
+        
+        .ui { width:90%; margin-top:10px; font-size:11px; }
+        .p-bar { width:100%; height:10px; background:#333; margin-top:5px; border:1px solid #555; }
+        .p-fill { height:100%; width:0%; background:var(--highlight); }
+
+        .soft-keys { height:24px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 4px; font-size:10px; text-transform:uppercase; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>DumbGolf</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div class="ui">Hole: 1 | Strokes: <span id="strokes">0</span></div>
+        <div class="course" id="grid"></div>
+        <div class="ui">
+            <div>Angle: <span id="angle">45</span>&deg; <span id="msg"></span></div>
+            <div class="p-bar"><div id="p-fill" class="p-fill"></div></div>
+        </div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="resetGame()">Reset</div>
+        <div class="soft-key center" onmousedown="startSwing()" onmouseup="releaseSwing()" ontouchstart="startSwing()" ontouchend="releaseSwing()">SWING</div>
+        <div class="soft-key right" onclick="history.back()">Quit</div>
+    </div>
+
+    <script>
+        let ball=90, hole=9, strokes=0, angle=45, power=0, charging=false, timer=null;
+
+        function init() {
+            const grid = document.getElementById('grid');
+            for(let i=0; i<100; i++) {
+                const t = document.createElement('div');
+                t.className = 'tile grass';
+                t.id = `t-${i}`;
+                grid.appendChild(t);
+            }
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            document.addEventListener('keydown', handleKey);
+            document.addEventListener('keyup', handleUp);
+            render();
+        }
+
+        function resetGame() {
+            ball=90; strokes=0; angle=45;
+            document.getElementById('strokes').innerText = 0;
+            document.getElementById('msg').innerText = "";
+            render();
+        }
+
+        function render() {
+            for(let i=0; i<100; i++) {
+                const t = document.getElementById(`t-${i}`);
+                t.className = 'tile grass';
+                t.innerHTML = '';
+                if([44,45,54,55].includes(i)) t.className='tile water';
+                if([22,28,82].includes(i)) t.className='tile sand';
+            }
+            document.getElementById(`t-${hole}`).className='tile hole';
+            document.getElementById(`t-${hole}`).innerHTML='⛳️';
+            
+            const b = document.getElementById(`t-${Math.floor(ball)}`);
+            if(b) { b.classList.add('ball'); b.innerHTML='⚪️'; }
+            
+            document.getElementById('angle').innerText = angle;
+        }
+
+        function startSwing() {
+            if(charging) return;
+            charging = true; power = 0;
+            timer = setInterval(() => {
+                power += 5; if(power>100) power=0;
+                document.getElementById('p-fill').style.width = power+'%';
+            }, 30);
+        }
+
+        function releaseSwing() {
+            if(!charging) return;
+            clearInterval(timer); charging = false;
+            strokes++; document.getElementById('strokes').innerText = strokes;
+            
+            const rad = angle * (Math.PI/180);
+            const dist = (power/100) * 8;
+            
+            const sx = ball%10, sy = Math.floor(ball/10);
+            const dx = Math.round(sx + Math.cos(rad)*dist);
+            const dy = Math.round(sy - Math.sin(rad)*dist); // Y invert
+            
+            const tx = Math.max(0, Math.min(9, dx));
+            const ty = Math.max(0, Math.min(9, dy));
+            const dest = ty*10 + tx;
+
+            document.getElementById('msg').innerText = "Flying...";
+            setTimeout(() => {
+                ball = dest;
+                render();
+                checkState();
+            }, 800);
+        }
+
+        function checkState() {
+            if(ball === hole) document.getElementById('msg').innerText = "HOLE IN ONE!";
+            else {
+                const t = document.getElementById(`t-${ball}`);
+                if(t.classList.contains('water')) {
+                    document.getElementById('msg').innerText = "SPLASH! (+1)";
+                    strokes++;
+                } else if(t.classList.contains('sand')) {
+                    document.getElementById('msg').innerText = "Bunker...";
+                } else {
+                    document.getElementById('msg').innerText = "";
+                }
+            }
+        }
+
+        function handleKey(e) {
+            if(e.key === 'ArrowLeft') { angle = (angle+15)%360; render(); }
+            if(e.key === 'ArrowRight') { angle = (angle-15+360)%360; render(); }
+            if(e.key === 'Enter' || e.key === ' ') { if(!e.repeat) startSwing(); }
+            if(e.key === 'F1') resetGame();
+            if(e.key === 'F2') history.back();
+        }
+
+        function handleUp(e) {
+            if(e.key === 'Enter' || e.key === ' ') releaseSwing();
+        }
+
+        init();
+    </script>
+</body>
+</html>
