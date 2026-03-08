@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Radio</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+        
+        .radio-icon { font-size: 64px; margin-bottom: 20px; animation: pulse 2s infinite paused; }
+        .radio-icon.playing { animation-play-state: running; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .station-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .status-text { color: #888; font-size: 12px; height: 20px; }
+        
+        .visualizer { display: flex; gap: 5px; height: 30px; align-items: flex-end; margin-top: 20px; }
+        .bar { width: 10px; background: var(--highlight); height: 5px; transition: height 0.1s; }
+        
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Radio</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div class="station-name">Lo-Fi Beats</div>
+        <div class="status-text" id="status">Stopped</div>
+        
+        <div class="radio-icon" id="icon">📻</div>
+        
+        <div class="visualizer">
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+        
+        <!-- Stream: Lofi Girl (MP3 128kbps) -->
+        <audio id="player" src="https://stream.zeno.fm/0r0xa792kwzuv"></audio>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="togglePlay()">Play/Stop</div>
+        <div class="soft-key center"></div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const icon = document.getElementById('icon');
+        const status = document.getElementById('status');
+        const bars = document.querySelectorAll('.bar');
+        let isPlaying = false;
+        let vizInterval;
+
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            
+            // Handle loading state
+            player.addEventListener('waiting', () => status.innerText = "Buffering...");
+            player.addEventListener('playing', () => {
+                status.innerText = "On Air";
+                status.style.color = "var(--highlight)";
+            });
+        }
+
+        function togglePlay() {
+            if(isPlaying) {
+                player.pause();
+                isPlaying = false;
+                icon.classList.remove('playing');
+                status.innerText = "Stopped";
+                status.style.color = "#888";
+                clearInterval(vizInterval);
+                bars.forEach(b => b.style.height = '5px');
+            } else {
+                player.play();
+                isPlaying = true;
+                icon.classList.add('playing');
+                status.innerText = "Connecting...";
+                
+                // Fake visualizer
+                vizInterval = setInterval(() => {
+                    bars.forEach(b => {
+                        b.style.height = Math.floor(Math.random() * 25 + 5) + 'px';
+                    });
+                }, 100);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'F1' || e.key === 'Enter' || e.key === ' ') togglePlay();
+            if(e.key === 'F2') history.back();
+        });
+
+        init();
+    </script>
+</body>
+</html>
