@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Todo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        
+        .input-area { padding: 5px; border-bottom: 1px solid #333; display: flex; }
+        #input { flex-grow: 1; background: #222; border: 1px solid #444; color: #fff; padding: 5px; font-family: inherit; font-size: 14px; border-radius: 4px; }
+        
+        .view { flex-grow:1; overflow-y:auto; padding:5px; }
+        
+        .todo-item { display: flex; align-items: center; padding: 10px 5px; border-bottom: 1px solid #333; cursor: pointer; }
+        .todo-item.active { background: var(--select); border-left: 3px solid var(--highlight); }
+        .todo-item.done { text-decoration: line-through; opacity: 0.5; }
+        
+        .check { margin-right: 10px; font-weight: bold; }
+
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Todo</span><span id="clock">--:--</span></div>
+
+    <div class="input-area">
+        <input type="text" id="input" placeholder="Add task...">
+    </div>
+
+    <div class="view" id="list">
+        <!-- Items go here -->
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="clearDone()">Cleanup</div>
+        <div class="soft-key center" onclick="handleCenter()">ADD</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        const list = document.getElementById('list');
+        const input = document.getElementById('input');
+        let todos = JSON.parse(localStorage.getItem('dumbos-todos') || '[]');
+        let focusIdx = -1; // -1 = Input
+
+        function init() {
+            render();
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            input.focus();
+        }
+
+        function save() {
+            localStorage.setItem('dumbos-todos', JSON.stringify(todos));
+            render();
+        }
+
+        function render() {
+            list.innerHTML = '';
+            todos.forEach((todo, i) => {
+                const el = document.createElement('div');
+                el.className = `todo-item ${todo.done ? 'done' : ''}`;
+                el.innerHTML = `<span class="check">[${todo.done ? 'x' : ' '}]</span> ${todo.text}`;
+                el.onclick = () => toggle(i);
+                list.appendChild(el);
+            });
+            updateFocus();
+        }
+
+        function add() {
+            const text = input.value.trim();
+            if(text) {
+                todos.push({text, done: false});
+                input.value = '';
+                save();
+            }
+        }
+
+        function toggle(i) {
+            if(todos[i]) {
+                todos[i].done = !todos[i].done;
+                save();
+            }
+        }
+
+        function clearDone() {
+            todos = todos.filter(t => !t.done);
+            save();
+            focusIdx = -1;
+            input.focus();
+        }
+
+        // Navigation
+        function updateFocus() {
+            const items = document.querySelectorAll('.todo-item');
+            items.forEach(el => el.classList.remove('active'));
+            input.blur();
+
+            if(focusIdx === -1) {
+                input.focus();
+                document.querySelector('.soft-key.center').innerText = "ADD";
+            } else {
+                if(items[focusIdx]) {
+                    items[focusIdx].classList.add('active');
+                    items[focusIdx].scrollIntoView({block: "nearest"});
+                    document.querySelector('.soft-key.center').innerText = "CHECK";
+                }
+            }
+        }
+
+        function handleCenter() {
+            if(focusIdx === -1) add();
+            else toggle(focusIdx);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowDown') {
+                if(focusIdx < todos.length - 1) { focusIdx++; updateFocus(); }
+                e.preventDefault();
+            }
+            if(e.key === 'ArrowUp') {
+                if(focusIdx > -1) { focusIdx--; updateFocus(); }
+                e.preventDefault();
+            }
+            if(e.key === 'Enter') handleCenter();
+            if(e.key === 'F1') clearDone();
+            if(e.key === 'F2') history.back();
+        });
+
+        init();
+    </script>
+</body>
+</html>
