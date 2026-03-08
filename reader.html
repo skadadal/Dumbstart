@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Reader</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        
+        .view { flex-grow:1; overflow-y:auto; padding:10px; line-height:1.6; font-size:16px; }
+        
+        h1 { font-size: 20px; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        p { margin-bottom: 15px; }
+        
+        .library { display: flex; flex-direction: column; gap: 5px; }
+        .book-item { padding: 15px 10px; border: 1px solid #333; cursor: pointer; }
+        .book-item:hover, .book-item.active { background: var(--select); border-color: var(--highlight); }
+
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span id="title">Library</span><span id="clock">--:--</span></div>
+
+    <div class="view" id="content">
+        <!-- Content injected here -->
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="toggleMode()">Mode</div>
+        <div class="soft-key center" onclick="handleSelect()">READ</div>
+        <div class="soft-key right" onclick="goBack()">Back</div>
+    </div>
+
+    <script>
+        const BOOKS = [
+            {
+                title: "The Art of War",
+                author: "Sun Tzu",
+                text: `<h1>The Art of War</h1><p><strong>1. Laying Plans</strong></p><p>Sun Tzu said: The art of war is of vital importance to the State.</p><p>It is a matter of life and death, a road either to safety or to ruin. Hence it is a subject of inquiry which can on no account be neglected.</p><p>The art of war, then, is governed by five constant factors, to be taken into account in one's deliberations, when seeking to determine the conditions obtaining in the field.</p><p>These are: (1) The Moral Law; (2) Heaven; (3) Earth; (4) The Commander; (5) Method and Discipline.</p><p>The Moral Law causes the people to be in complete accord with their ruler, so that they will follow him regardless of their lives, undismayed by any danger.</p><p>Heaven signifies night and day, cold and heat, times and seasons.</p><p>Earth comprises distances, great and small; danger and security; open ground and narrow passes; the chances of life and death.</p>`
+            },
+            {
+                title: "Sherlock Holmes",
+                author: "Conan Doyle",
+                text: `<h1>A Scandal in Bohemia</h1><p>To Sherlock Holmes she is always <em>the</em> woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex.</p><p>It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.</p><p>He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position.</p><p>He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men's motives and actions.</p>`
+            },
+            {
+                title: "Hacker Manifesto",
+                author: "The Mentor",
+                text: `<h1>The Conscience of a Hacker</h1><p>Another one got caught today, it's all over the papers. "Teenager Arrested in Computer Crime Scandal", "Hacker Arrested after Bank Tampering"...</p><p>Damn kids. They're all alike.</p><p>But did you, in your three-piece psychology and 1950's technobrain, ever take a look behind the eyes of the hacker? Did you ever wonder what made him tick, what forces shaped him, what may have molded him?</p><p>I am a hacker, enter my world...</p><p>Mine is a world that begins with school... I'm smarter than most of the other kids, this crap they teach us bores me...</p><p>Damn underachiever. They're all alike.</p>`
+            }
+        ];
+
+        let currentView = 'library'; // library | reader
+        let currentBook = null;
+        let focusIdx = 0;
+
+        function init() {
+            renderLibrary();
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+        }
+
+        function renderLibrary() {
+            currentView = 'library';
+            document.getElementById('title').innerText = "Library";
+            const div = document.getElementById('content');
+            div.innerHTML = '<div class="library" id="list"></div>';
+            const list = document.getElementById('list');
+            
+            BOOKS.forEach((book, i) => {
+                const el = document.createElement('div');
+                el.className = 'book-item';
+                el.innerHTML = `<strong>${book.title}</strong><br><small>${book.author}</small>`;
+                el.onclick = () => openBook(i);
+                list.appendChild(el);
+            });
+            updateFocus();
+        }
+
+        function openBook(idx) {
+            currentBook = BOOKS[idx];
+            currentView = 'reader';
+            document.getElementById('title').innerText = currentBook.title.substring(0, 15) + '...';
+            document.getElementById('content').innerHTML = currentBook.text;
+            
+            // Load progress
+            const savedScroll = localStorage.getItem(`read-${currentBook.title}`);
+            if(savedScroll) {
+                document.getElementById('content').scrollTop = savedScroll;
+            } else {
+                document.getElementById('content').scrollTop = 0;
+            }
+            
+            // Auto-save scroll
+            document.getElementById('content').addEventListener('scroll', () => {
+                localStorage.setItem(`read-${currentBook.title}`, document.getElementById('content').scrollTop);
+            });
+        }
+
+        function goBack() {
+            if(currentView === 'reader') renderLibrary();
+            else history.back();
+        }
+
+        function toggleMode() {
+            document.body.classList.toggle('sepia');
+            // Can add sepia CSS later, or toggle font size
+            const view = document.getElementById('content');
+            const currentSize = parseInt(window.getComputedStyle(view).fontSize);
+            view.style.fontSize = (currentSize === 16 ? 20 : 16) + 'px';
+        }
+
+        // Navigation
+        function updateFocus() {
+            if(currentView !== 'library') return;
+            const items = document.querySelectorAll('.book-item');
+            items.forEach(i => i.classList.remove('active'));
+            if(items[focusIdx]) {
+                items[focusIdx].classList.add('active');
+                items[focusIdx].scrollIntoView({block:'nearest'});
+            }
+        }
+
+        function handleSelect() {
+            if(currentView === 'library') openBook(focusIdx);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(currentView === 'library') {
+                if(e.key === 'ArrowDown') {
+                    if(focusIdx < BOOKS.length - 1) focusIdx++;
+                    updateFocus();
+                }
+                if(e.key === 'ArrowUp') {
+                    if(focusIdx > 0) focusIdx--;
+                    updateFocus();
+                }
+                if(e.key === 'Enter') handleSelect();
+            } else {
+                // Reader scroll
+                const view = document.getElementById('content');
+                if(e.key === 'ArrowDown') view.scrollBy(0, 50);
+                if(e.key === 'ArrowUp') view.scrollBy(0, -50);
+            }
+            
+            if(e.key === 'F1') toggleMode();
+            if(e.key === 'F2') goBack();
+        });
+
+        init();
+    </script>
+</body>
+</html>
