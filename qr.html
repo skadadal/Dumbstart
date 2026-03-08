@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - QR</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔳</text></svg>">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; padding:10px; }
+        
+        canvas { background: #fff; padding: 10px; border-radius: 4px; margin: 20px 0; }
+        
+        .input-area { width: 100%; margin-bottom: 10px; }
+        #input { width: 95%; background: #222; border: 1px solid #444; color: #fff; padding: 8px; font-family: inherit; font-size: 14px; border-radius: 4px; }
+        
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>QR Gen</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div class="input-area">
+            <input type="text" id="input" placeholder="Type text or URL..." value="https://skadadal.github.io/Dumbstart/">
+        </div>
+        <canvas id="qr"></canvas>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="clearInput()">Clear</div>
+        <div class="soft-key center" onclick="generate()">GENERATE</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        const qr = new QRious({
+            element: document.getElementById('qr'),
+            value: 'https://skadadal.github.io/Dumbstart/',
+            size: 200,
+            background: 'white',
+            foreground: 'black'
+        });
+
+        const input = document.getElementById('input');
+
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            input.focus();
+        }
+
+        function generate() {
+            const val = input.value;
+            if(val) {
+                qr.value = val;
+            }
+        }
+
+        function clearInput() {
+            input.value = '';
+            input.focus();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') generate();
+            if(e.key === 'F1') clearInput();
+            if(e.key === 'F2') history.back();
+        });
+
+        init();
+    </script>
+</body>
+</html>
