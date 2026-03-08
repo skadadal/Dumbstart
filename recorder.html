@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Recorder</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+        
+        .mic-icon { font-size: 64px; margin-bottom: 20px; transition: color 0.2s; }
+        .mic-icon.rec { color: red; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        
+        .time-display { font-size: 32px; font-weight: bold; margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+        .status-text { color: #888; height: 20px; font-size: 12px; }
+        
+        .clip-list { width: 90%; max-height: 100px; overflow-y: auto; margin-top: 20px; border-top: 1px solid #333; text-align: left; }
+        .clip-item { padding: 5px; border-bottom: 1px solid #333; font-size: 12px; display: flex; justify-content: space-between; }
+        .clip-item:active { background: var(--select); }
+
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Recorder</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div id="mic" class="mic-icon">🎙️</div>
+        <div class="time-display" id="timer">00:00</div>
+        <div class="status-text" id="status">Ready</div>
+        
+        <div class="clip-list" id="list">
+            <!-- Recordings go here -->
+        </div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="clearLast()">Delete</div>
+        <div class="soft-key center" onclick="toggleRecord()">RECORD</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let chunks = [];
+        let isRecording = false;
+        let startTime;
+        let timerInt;
+
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+        }
+
+        async function toggleRecord() {
+            if (!isRecording) {
+                // START
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    
+                    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                    mediaRecorder.onstop = saveRecording;
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    chunks = [];
+                    
+                    document.getElementById('mic').classList.add('rec');
+                    document.querySelector('.soft-key.center').innerText = "STOP";
+                    document.getElementById('status').innerText = "Recording...";
+                    
+                    startTime = Date.now();
+                    timerInt = setInterval(updateTimer, 100);
+                } catch(err) {
+                    alert("Microphone access denied.");
+                }
+            } else {
+                // STOP
+                mediaRecorder.stop();
+                isRecording = false;
+                clearInterval(timerInt);
+                
+                document.getElementById('mic').classList.remove('rec');
+                document.querySelector('.soft-key.center').innerText = "RECORD";
+                document.getElementById('status').innerText = "Saved.";
+                document.getElementById('timer').innerText = "00:00";
+            }
+        }
+
+        function updateTimer() {
+            const diff = Math.floor((Date.now() - startTime) / 1000);
+            const m = Math.floor(diff / 60).toString().padStart(2, '0');
+            const s = (diff % 60).toString().padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+        }
+
+        function saveRecording() {
+            const blob = new Blob(chunks, { 'type' : 'audio/ogg; codecs=opus' });
+            const url = URL.createObjectURL(blob);
+            const date = new Date().toLocaleTimeString();
+            
+            const item = document.createElement('div');
+            item.className = 'clip-item';
+            item.innerHTML = `<span>Memo ${date}</span> <span>▶️</span>`;
+            item.onclick = () => {
+                const audio = new Audio(url);
+                audio.play();
+            };
+            
+            // Auto-download option
+            // const a = document.createElement('a');
+            // a.href = url; a.download = `memo_${Date.now()}.ogg`; a.click();
+            
+            const list = document.getElementById('list');
+            list.insertBefore(item, list.firstChild);
+        }
+
+        function clearLast() {
+            const list = document.getElementById('list');
+            if(list.firstChild) list.removeChild(list.firstChild);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter' || e.key === ' ') toggleRecord();
+            if(e.key === 'F2') history.back();
+        });
+
+        init();
+    </script>
+</body>
+</html>
