@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Arcade</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👾</text></svg>">
+    <style>
+        :root {
+            --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333;
+            --font: 'Courier New', monospace; --status-h: 18px; --soft-h: 24px;
+        }
+        body {
+            margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+            font-family: var(--font); font-size: 11px;
+            display: flex; flex-direction: column; height: 100vh;
+            overflow: hidden; user-select: none; touch-action: none;
+        }
+        .status-bar {
+            height: var(--status-h); background: #111; border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 4px; font-size: 10px;
+        }
+        .view { flex-grow: 1; padding: 4px; overflow-y: auto; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+        .app {
+            display: flex; flex-direction: column; align-items: center; padding: 6px 2px;
+            border: 1px solid transparent; text-decoration: none; color: inherit;
+            border-radius: 3px; position: relative; cursor: pointer;
+        }
+        .app.active, .app:focus { background: var(--select); border-color: var(--highlight); outline: none; }
+        .icon { font-size: 24px; margin-bottom: 2px; }
+        .soft-keys {
+            height: var(--soft-h); background: #111; border-top: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 4px; font-size: 10px; text-transform: uppercase;
+        }
+        .soft-key { width: 33%; text-align: center; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="status-bar">
+        <span>Arcade</span>
+        <span id="clock">--:--</span>
+    </div>
+
+    <div class="view">
+        <div class="grid" id="game-grid">
+            <a href="snake.html" class="app" tabindex="1">
+                <span class="icon">🐍</span><span class="name">Snake</span>
+            </a>
+            <!-- Placeholders for future migrations -->
+            <a href="#" class="app" tabindex="2" style="opacity:0.5">
+                <span class="icon">🧮</span><span class="name">Calc (Soon)</span>
+            </a>
+            <a href="#" class="app" tabindex="3" style="opacity:0.5">
+                <span class="icon">🧠</span><span class="name">Simon (Soon)</span>
+            </a>
+            <a href="#" class="app" tabindex="4" style="opacity:0.5">
+                <span class="icon">⛳️</span><span class="name">Golf (Soon)</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left"></div>
+        <div class="soft-key center" onclick="handleSelect()">OPEN</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        // Navigation
+        const apps = document.querySelectorAll('.app');
+        let focusIdx = 0;
+        apps[0].focus(); apps[0].classList.add('active');
+
+        document.addEventListener('keydown', (e) => {
+            const k = e.key;
+            apps[focusIdx].classList.remove('active');
+            
+            if(k === 'ArrowRight' && focusIdx < apps.length-1) focusIdx++;
+            if(k === 'ArrowLeft' && focusIdx > 0) focusIdx--;
+            if(k === 'ArrowDown' && focusIdx + 3 < apps.length) focusIdx += 3;
+            if(k === 'ArrowUp' && focusIdx - 3 >= 0) focusIdx -= 3;
+            
+            // Enter
+            if(k === 'Enter' || k === 'SoftCenter') apps[focusIdx].click();
+            // Back
+            if(k === 'F2' || k === 'SoftRight' || k === 'Backspace') history.back();
+
+            apps[focusIdx].classList.add('active');
+            apps[focusIdx].focus();
+        });
+
+        function handleSelect() { apps[focusIdx].click(); }
+    </script>
+</body>
+</html>
