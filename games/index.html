@@ -8,32 +8,34 @@
     <style>
         :root {
             --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333;
-            --font: 'Courier New', monospace; --status-h: 18px; --soft-h: 24px;
+            --font: 'Courier New', monospace; 
+            --status-h: 24px; --soft-h: 30px;
         }
         body {
             margin: 0; padding: 0; background: var(--bg); color: var(--fg);
-            font-family: var(--font); font-size: 11px;
+            font-family: var(--font); font-size: 14px; font-weight: bold;
             display: flex; flex-direction: column; height: 100vh;
             overflow: hidden; user-select: none; touch-action: none;
         }
         .status-bar {
             height: var(--status-h); background: #111; border-bottom: 1px solid #333;
             display: flex; justify-content: space-between; align-items: center;
-            padding: 0 4px; font-size: 10px;
+            padding: 0 5px; font-size: 12px;
         }
-        .view { flex-grow: 1; padding: 4px; overflow-y: auto; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+        .view { flex-grow: 1; padding: 5px; overflow-y: auto; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
         .app {
-            display: flex; flex-direction: column; align-items: center; padding: 6px 2px;
+            display: flex; flex-direction: column; align-items: center; padding: 8px 2px;
             border: 1px solid transparent; text-decoration: none; color: inherit;
-            border-radius: 3px; position: relative; cursor: pointer;
+            border-radius: 4px; position: relative; cursor: pointer;
         }
         .app.active, .app:focus { background: var(--select); border-color: var(--highlight); outline: none; }
-        .icon { font-size: 24px; margin-bottom: 2px; }
+        .icon { font-size: 32px; margin-bottom: 4px; }
+        .name { font-size: 12px; }
         .soft-keys {
             height: var(--soft-h); background: #111; border-top: 1px solid #333;
             display: flex; justify-content: space-between; align-items: center;
-            padding: 0 4px; font-size: 10px; text-transform: uppercase;
+            padding: 0 5px; font-size: 12px; text-transform: uppercase; font-weight: bold;
         }
         .soft-key { width: 33%; text-align: center; cursor: pointer; }
     </style>
