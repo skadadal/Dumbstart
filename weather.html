@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Weather</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☁️</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        .view { flex-grow:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px; text-align:center; }
+        
+        .temp-huge { font-size: 48px; font-weight: bold; margin: 10px 0; }
+        .condition { font-size: 18px; color: var(--highlight); margin-bottom: 20px; }
+        .details { font-size: 12px; color: #888; line-height: 1.5; }
+        
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Weather</span><span id="clock">--:--</span></div>
+
+    <div class="view" id="weather-view">
+        <div id="loading">Locating...</div>
+        
+        <div id="content" style="display:none;">
+            <div class="condition" id="w-desc">--</div>
+            <div class="temp-huge"><span id="w-temp">--</span>&deg;</div>
+            <div class="details">
+                💨 Wind: <span id="w-wind">--</span> km/h<br>
+                📍 <span id="w-loc">Unknown</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="getLocation()">Refresh</div>
+        <div class="soft-key center"></div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            getLocation();
+        }
+
+        function getLocation() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('content').style.display = 'none';
+            document.getElementById('loading').innerText = "Finding GPS...";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(fetchWeather, showError);
+            } else {
+                document.getElementById('loading').innerText = "No GPS support.";
+            }
+        }
+
+        function fetchWeather(pos) {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            document.getElementById('w-loc').innerText = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+            document.getElementById('loading').innerText = "Downloading...";
+
+            // Open-Meteo API
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const current = data.current_weather;
+                    document.getElementById('w-temp').innerText = Math.round(current.temperature);
+                    document.getElementById('w-wind').innerText = current.windspeed;
+                    document.getElementById('w-desc').innerText = getWeatherDesc(current.weathercode);
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                })
+                .catch(err => {
+                    document.getElementById('loading').innerText = "API Error.";
+                });
+        }
+
+        function getWeatherDesc(code) {
+            // WMO Weather interpretation codes (WW)
+            if(code === 0) return "☀️ Clear Sky";
+            if(code >= 1 && code <= 3) return "⛅ Partly Cloudy";
+            if(code >= 45 && code <= 48) return "🌫️ Foggy";
+            if(code >= 51 && code <= 55) return "🌧️ Drizzle";
+            if(code >= 61 && code <= 65) return "☔ Rain";
+            if(code >= 71 && code <= 75) return "❄️ Snow";
+            if(code >= 95) return "⛈️ Thunderstorm";
+            return "Unknown";
+        }
+
+        function showError(error) {
+            document.getElementById('loading').innerText = "GPS Error: " + error.message;
+        }
+
+        init();
+    </script>
+</body>
+</html>
