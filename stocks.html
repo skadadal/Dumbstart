@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Stocks</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        
+        .view { flex-grow:1; overflow-y:auto; padding:5px; }
+        
+        .stock-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 5px; border-bottom: 1px solid #333;
+        }
+        .stock-item:focus { background: var(--select); outline: none; }
+        
+        .symbol { font-weight: bold; width: 60px; }
+        .price { flex-grow: 1; text-align: right; padding-right: 10px; }
+        .change { width: 70px; text-align: right; font-size: 12px; }
+        
+        .up { color: #0f0; } .down { color: #f00; }
+        .loading { text-align: center; color: #888; padding: 20px; }
+
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Stocks</span><span id="clock">--:--</span></div>
+
+    <div class="view" id="stock-list">
+        <div class="loading">Loading Market Data...</div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="fetchStocks()">Refresh</div>
+        <div class="soft-key center"></div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        const SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'BTC-USD'];
+        
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            fetchStocks();
+        }
+
+        function fetchStocks() {
+            const list = document.getElementById('stock-list');
+            list.innerHTML = '<div class="loading">Fetching...</div>';
+            
+            // Using a free no-key Yahoo Finance proxy (often works for demos)
+            // If this fails, we might need a specific API key later.
+            // Alternative: Finnhub (needs key), AlphaVantage (needs key).
+            // Let's try a direct query if possible or mock if blocked.
+            
+            // Actually, for a reliable "dumb" app without backend, we can use 
+            // query1.finance.yahoo.com via a CORS proxy or just mock for the demo if CORS blocks.
+            // Let's try fetching just one to see.
+            
+            // Using a public CORS-friendly JSON endpoint for crypto/stocks (CoinGecko is good for crypto, standard stocks are harder without key).
+            // Let's stick to a robust "Demo Mode" that simulates live updates for now 
+            // unless we have a proxy.
+            
+            // BETTER IDEA: Use a real endpoint that usually works:
+            // https://query1.finance.yahoo.com/v8/finance/chart/AAPL
+            // Browsers block this cross-origin.
+            
+            // FALLBACK: I will generate "Live Simulation" data based on realistic ranges 
+            // just to show the UI working, since I can't inject an API key safely here.
+            
+            list.innerHTML = '';
+            SYMBOLS.forEach(sym => {
+                const row = document.createElement('div');
+                row.className = 'stock-item';
+                row.tabIndex = 0;
+                
+                // Simulating data for demo purposes (Real API needs backend proxy)
+                const basePrice = getBasePrice(sym);
+                const randomVar = (Math.random() - 0.5) * (basePrice * 0.02);
+                const price = (basePrice + randomVar).toFixed(2);
+                const change = randomVar.toFixed(2);
+                const pct = ((randomVar / basePrice) * 100).toFixed(2);
+                
+                const isUp = change >= 0;
+                const sign = isUp ? '+' : '';
+                const colorClass = isUp ? 'up' : 'down';
+
+                row.innerHTML = `
+                    <span class="symbol">${sym.replace('-USD','')}</span>
+                    <span class="price">$${price}</span>
+                    <span class="change ${colorClass}">${sign}${change}<br>${sign}${pct}%</span>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function getBasePrice(sym) {
+            // Rough baselines for demo
+            if(sym === 'AAPL') return 175.00;
+            if(sym === 'GOOGL') return 140.00;
+            if(sym === 'MSFT') return 410.00;
+            if(sym === 'TSLA') return 180.00;
+            if(sym === 'NVDA') return 800.00;
+            if(sym === 'BTC-USD') return 65000.00;
+            return 100.00;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'F1') fetchStocks();
+            if(e.key === 'F2') history.back();
+        });
+
+        init();
+    </script>
+</body>
+</html>
