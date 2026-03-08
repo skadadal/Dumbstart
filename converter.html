@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DumbOS - Convert</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📏</text></svg>">
+    <style>
+        :root { --bg: #000; --fg: #e0e0e0; --highlight: #0f0; --select: #333; --font: 'Courier New', monospace; }
+        body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+        .status-bar { height:24px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; }
+        
+        .view { flex-grow:1; display:flex; flex-direction:column; padding:10px; }
+        
+        .tabs { display: flex; gap: 5px; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 8px; border: 1px solid #444; border-radius: 4px; cursor: pointer; }
+        .tab.active { background: var(--highlight); color: #000; font-weight: bold; }
+        
+        .io-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; }
+        label { font-size: 12px; color: #888; }
+        input { background: #222; border: 1px solid #444; color: #fff; padding: 10px; font-size: 18px; border-radius: 4px; text-align: right; font-family: inherit; }
+        
+        .result { font-size: 24px; text-align: right; color: var(--highlight); font-weight: bold; }
+
+        .soft-keys { height:30px; background:#111; border-top:1px solid #333; display:flex; justify-content:space-between; align-items:center; padding:0 5px; font-size:12px; text-transform:uppercase; font-weight:bold; }
+        .soft-key { width:33%; text-align:center; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="status-bar"><span>Converter</span><span id="clock">--:--</span></div>
+
+    <div class="view">
+        <div class="tabs">
+            <div id="tab-len" class="tab active" onclick="setMode('len')">Dist</div>
+            <div id="tab-wgt" class="tab" onclick="setMode('wgt')">Mass</div>
+            <div id="tab-tmp" class="tab" onclick="setMode('tmp')">Temp</div>
+        </div>
+        
+        <div class="io-group">
+            <label id="lbl-in">Meters</label>
+            <input type="number" id="input" value="1" oninput="convert()">
+        </div>
+        
+        <div class="io-group">
+            <label id="lbl-out">Feet</label>
+            <div class="result" id="output">3.28</div>
+        </div>
+    </div>
+
+    <div class="soft-keys">
+        <div class="soft-key left" onclick="swap()">Swap</div>
+        <div class="soft-key center" onclick="convert()">CALC</div>
+        <div class="soft-key right" onclick="history.back()">Back</div>
+    </div>
+
+    <script>
+        let mode = 'len'; // len, wgt, tmp
+        let swapped = false;
+
+        function init() {
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            }, 1000);
+            document.getElementById('input').focus();
+        }
+
+        function setMode(m) {
+            mode = m; swapped = false;
+            document.querySelectorAll('.tab').forEach(t => t.className = 'tab');
+            document.getElementById('tab-' + m).className = 'tab active';
+            updateLabels();
+            convert();
+        }
+
+        function swap() {
+            swapped = !swapped;
+            updateLabels();
+            convert();
+        }
+
+        function updateLabels() {
+            const labels = {
+                len: ['Meters', 'Feet'],
+                wgt: ['Kilograms', 'Pounds'],
+                tmp: ['Celsius', 'Fahrenheit']
+            };
+            const pair = labels[mode];
+            document.getElementById('lbl-in').innerText = swapped ? pair[1] : pair[0];
+            document.getElementById('lbl-out').innerText = swapped ? pair[0] : pair[1];
+        }
+
+        function convert() {
+            const val = parseFloat(document.getElementById('input').value) || 0;
+            let res = 0;
+            
+            if(mode === 'len') {
+                // m <-> ft (1 m = 3.28084 ft)
+                res = swapped ? val / 3.28084 : val * 3.28084;
+            } else if (mode === 'wgt') {
+                // kg <-> lb (1 kg = 2.20462 lb)
+                res = swapped ? val / 2.20462 : val * 2.20462;
+            } else if (mode === 'tmp') {
+                // C <-> F
+                res = swapped ? (val - 32) * 5/9 : (val * 9/5) + 32;
+            }
+            
+            document.getElementById('output').innerText = res.toFixed(2);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'F1') swap();
+            if(e.key === 'F2') history.back();
+            if(e.key === 'ArrowRight') cycleMode(1);
+            if(e.key === 'ArrowLeft') cycleMode(-1);
+        });
+
+        function cycleMode(dir) {
+            const modes = ['len', 'wgt', 'tmp'];
+            let idx = modes.indexOf(mode);
+            idx = (idx + dir + modes.length) % modes.length;
+            setMode(modes[idx]);
+        }
+
+        init();
+    </script>
+</body>
+</html>
